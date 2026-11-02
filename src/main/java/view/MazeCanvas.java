@@ -14,10 +14,17 @@ public class MazeCanvas extends Canvas {
     private Cell playerCell;
     private boolean fogOfWarActive = false;
     private int fogRadius = 2;
-    private final MazeRenderer renderer = new MazeRenderer();
+
+    // Abstracted renderer interface with default rectangular implementation
+    private MazeRenderer renderer = new RectangularRenderer();
 
     public MazeCanvas(double width, double height) {
         super(width, height);
+        draw();
+    }
+
+    public void setRenderer(MazeRenderer renderer) {
+        this.renderer = renderer;
         draw();
     }
 

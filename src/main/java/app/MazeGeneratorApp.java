@@ -328,10 +328,8 @@ public class MazeGeneratorApp extends Application {
             if (isFogOfWar) {
                 fogOfWarToggle.setText("Fog of War: ON");
                 if (grid != null) {
-                    for (int x = 0; x < grid.cols; x++) {
-                        for (int y = 0; y < grid.rows; y++) {
-                            grid.cells[x][y].discovered = false;
-                        }
+                    for (Cell c : grid.getAllCells()) {
+                        c.discovered = false;
                     }
                     if (isPlayMode) {
                         player.updateDiscovery(grid, true, fogRadius);
@@ -341,10 +339,8 @@ public class MazeGeneratorApp extends Application {
             } else {
                 fogOfWarToggle.setText("Fog of War: OFF");
                 if (grid != null) {
-                    for (int x = 0; x < grid.cols; x++) {
-                        for (int y = 0; y < grid.rows; y++) {
-                            grid.cells[x][y].discovered = true;
-                        }
+                    for (Cell c : grid.getAllCells()) {
+                        c.discovered = !isFogOfWar;
                     }
                 }
                 mazeCanvas.setFogOfWarActive(false, fogRadius);
@@ -409,10 +405,8 @@ public class MazeGeneratorApp extends Application {
         mazeCanvas.setWidth(width * cellDim);
         mazeCanvas.setHeight(height * cellDim);
 
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                grid.cells[x][y].discovered = !isFogOfWar;
-            }
+        for (Cell c : grid.getAllCells()) {
+            c.discovered = !isFogOfWar;
         }
 
         mazeCanvas.setGrid(grid);
@@ -444,8 +438,8 @@ public class MazeGeneratorApp extends Application {
 
             if (!running) {
                 animTimeline.stop();
-                applyComplexityFactor(grid, complexityFactor);
-                createOpenings(grid);
+                grid.applyComplexityFactor(complexityFactor);
+                grid.createRectangularOpenings();
                 mazeCanvas.setCurrentHead(null);
 
                 if (showSolutionToggle.isSelected()) {
@@ -489,61 +483,12 @@ public class MazeGeneratorApp extends Application {
 
     private void updateStatistics(int pathLength) {
         if (grid == null) return;
-        int totalCells = grid.cols * grid.rows;
-        int deadEnds = 0;
-
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                Cell cell = grid.cells[x][y];
-                int wallCount = 0;
-                for (boolean w : cell.walls) if (w) wallCount++;
-                if (wallCount == 3) deadEnds++;
-            }
-        }
+        int totalCells = grid.getAllCells().size();
+        int deadEnds = grid.countDeadEnds();
 
         String pathStr = (pathLength > 0) ? pathLength + " steps" : "Hidden / Not solved";
         statsLabel.setText(String.format("Statistics:\nTotal Cells: %d\nDead Ends: %d\nPath Length: %s",
                 totalCells, deadEnds, pathStr));
-    }
-
-    private void applyComplexityFactor(MazeGrid grid, double complexityFactor) {
-        Random rand = new Random();
-        double removalChance = 1.0 - complexityFactor;
-
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                Cell cell = grid.cells[x][y];
-                int wallCount = 0;
-                for (boolean w : cell.walls) if (w) wallCount++;
-
-                if (wallCount == 3 && rand.nextDouble() < removalChance) {
-                    List<Cell> adj = new java.util.ArrayList<>();
-                    int[][] dirs = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-                    for (int[] d : dirs) {
-                        Cell n = grid.getCell(cell.x + d[0], cell.y + d[1]);
-                        if (n != null) adj.add(n);
-                    }
-                    if (!adj.isEmpty()) {
-                        grid.removeWalls(cell, adj.get(rand.nextInt(adj.size())));
-                    }
-                }
-            }
-        }
-    }
-
-    private void createOpenings(MazeGrid grid) {
-        Random rand = new Random();
-
-        int entranceY = rand.nextInt(grid.rows);
-        Cell entranceCell = grid.getCell(0, entranceY);
-        entranceCell.walls[3] = false;
-        entranceCell.isEntrance = true;
-        entranceCell.discovered = true;
-
-        int exitY = rand.nextInt(grid.rows);
-        Cell exitCell = grid.getCell(grid.cols - 1, exitY);
-        exitCell.walls[1] = false;
-        exitCell.isExit = true;
     }
 
     public static void main(String[] args) {

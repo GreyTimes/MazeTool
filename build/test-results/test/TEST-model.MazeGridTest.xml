@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="model.MazeGridTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-01T16:59:17.586Z" hostname="HOMELAB" time="0.027">
+<testsuite name="model.MazeGridTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-02T09:05:12.286Z" hostname="HOMELAB" time="0.027">
   <properties/>
-  <testcase name="testOutOfBoundsCell()" classname="model.MazeGridTest" time="0.012"/>
-  <testcase name="testGridInitialization()" classname="model.MazeGridTest" time="0.002"/>
+  <testcase name="testNonSquareRectangularGrid()" classname="model.MazeGridTest" time="0.014"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
