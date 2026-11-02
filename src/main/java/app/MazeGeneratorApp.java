@@ -1718,57 +1718,62 @@ public class MazeGeneratorApp extends Application {
     // VICTORY
     // ============================================================
 
+
     private void showVictory() {
+
+        // Capture the final step count before resetting the player.
+        int completedSteps = player.getSteps();
+
+        // Disable further player movement immediately.
+        isPlayMode = false;
+        isPlayerMoving = false;
+
+        playModeToggle.setSelected(false);
+        playModeToggle.setText("Playable Mode: OFF");
+
+        // Remove movement hints while the victory dialog is displayed.
+        mazeCanvas.setHighlightedCells(List.of());
+        mazeCanvas.setHoveredCell(null);
 
         Alert alert = new Alert(
                 Alert.AlertType.INFORMATION
         );
 
         alert.setTitle("Victory!");
-
-        alert.setHeaderText(null);
+        alert.setHeaderText("🎉 Maze Completed!");
 
         alert.setContentText(
-                "🎉 Congratulations! You successfully navigated " +
-                        "through the maze in " +
-                        player.getSteps() +
-                        " steps!"
+                "Congratulations!\n\n" +
+                        "You successfully navigated through the maze.\n\n" +
+                        "Total Steps: " + completedSteps
         );
 
-        alert.showAndWait();
+        alert.setResizable(false);
 
-        isPlayMode = false;
+        // Clean up after the user closes the dialog.
+        alert.setOnHidden(event -> {
 
-        playModeToggle.setSelected(false);
+            player.reset();
 
-        playModeToggle.setText(
-                "Playable Mode: OFF"
-        );
+            mazeCanvas.setPlayerCell(null);
 
-        if (movementTimeline != null) {
-            movementTimeline.stop();
-        }
+            mazeCanvas.clearPlayerScreenPosition();
 
-        isPlayerMoving = false;
+            mazeCanvas.setHighlightedCells(List.of());
 
-        player.reset();
+            mazeCanvas.setHoveredCell(null);
 
-        mazeCanvas.setPlayerCell(null);
+            mazeCanvas.setFogOfWarActive(
+                    false,
+                    fogRadius
+            );
+        });
 
-        mazeCanvas.clearPlayerScreenPosition();
-
-        mazeCanvas.setHighlightedCells(
-                List.of()
-        );
-
-        mazeCanvas.setHoveredCell(null);
-
-        mazeCanvas.setFogOfWarActive(
-                false,
-                fogRadius
-        );
+        // IMPORTANT:
+        // show() is non-blocking and does not create a nested event loop.
+        // This is safe when called from a Timeline animation callback.
+        alert.show();
     }
-
 
     // ============================================================
     // GENERATION ANIMATION
