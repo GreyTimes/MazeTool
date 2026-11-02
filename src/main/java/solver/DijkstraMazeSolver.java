@@ -3,69 +3,123 @@ package solver;
 import model.Cell;
 import model.MazeGrid;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
 
-public class DijkstraMazeSolver {
+/**
+ * Dijkstra shortest path weighted by Euclidean distance between neighboring
+ * cell centers. This avoids a Cartesian-coordinate assumption for polar grids.
+ */
+public final class DijkstraMazeSolver {
+    private DijkstraMazeSolver() { }
+
+    private static final class QueueNode {
+        private final Cell cell;
+        private final double distance;
+
+        private QueueNode(Cell cell, double distance) {
+            this.cell = cell;
+            this.distance = distance;
+        }
+    }
+
     public static List<Cell> solve(MazeGrid grid) {
-        Cell start = null, exit = null;
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                if (grid.cells[x][y].isEntrance) start = grid.cells[x][y];
-                if (grid.cells[x][y].isExit) exit = grid.cells[x][y];
-            }
+        if (grid == null) return null;
+
+        Cell start = grid.getEntranceCell();
+        Cell target = grid.getExitCell();
+
+        if (start == null || target == null) return null;
+        if (start == target) return Collections.singletonList(start);
+
+        Map<Cell, Double> distances = new HashMap<>();
+        Map<Cell, Cell> parent = new HashMap<>();
+
+        PriorityQueue<QueueNode> queue = new PriorityQueue<>(
+                Comparator.comparingDouble(node -> node.distance)
+        );
+
+        for (Cell cell : grid.getAllCells()) {
+            distances.put(cell, Double.POSITIVE_INFINITY);
         }
-        if (start == null || exit == null) return null;
 
-        Map<Cell, Integer> distances = new HashMap<>();
-        Map<Cell, Cell> parentMap = new HashMap<>();
-        PriorityQueue<Cell> pq = new PriorityQueue<>(Comparator.comparingInt(distances::get));
+        distances.put(start, 0.0);
 
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                distances.put(grid.cells[x][y], Integer.MAX_VALUE);
+        queue.add(new QueueNode(start, 0.0));
+
+        while (!queue.isEmpty()) {
+
+            QueueNode node = queue.poll();
+
+            Cell current = node.cell;
+
+            if (node.distance > distances.get(current)) {
+                continue;
             }
-        }
 
-        distances.put(start, 0);
-        pq.add(start);
+            if (current == target) {
+                break;
+            }
 
-        while (!pq.isEmpty()) {
-            Cell curr = pq.poll();
-            if (curr == exit) break;
+            for (Map.Entry<Cell, Boolean> edge
+                    : current.getNeighbors().entrySet()) {
 
-            List<Cell> neighbors = getAccessibleNeighbors(curr, grid);
-            for (Cell n : neighbors) {
-                int newDist = distances.get(curr) + 1;
-                if (newDist < distances.get(n)) {
-                    distances.put(n, newDist);
-                    parentMap.put(n, curr);
-                    pq.remove(n);
-                    pq.add(n);
+                if (!Boolean.TRUE.equals(edge.getValue())) {
+                    continue;
+                }
+
+                Cell neighbor = edge.getKey();
+
+                double stepCost = centerDistance(current, neighbor);
+
+                double candidate =
+                        distances.get(current) + stepCost;
+
+                if (candidate < distances.getOrDefault(
+                        neighbor,
+                        Double.POSITIVE_INFINITY
+                )) {
+
+                    distances.put(neighbor, candidate);
+
+                    parent.put(neighbor, current);
+
+                    queue.add(new QueueNode(neighbor, candidate));
                 }
             }
         }
 
-        List<Cell> path = new ArrayList<>();
-        Cell curr = exit;
-        if (!parentMap.containsKey(curr) && curr != start) return null;
-
-        while (curr != null) {
-            path.add(0, curr);
-            curr = parentMap.get(curr);
+        if (!parent.containsKey(target)) {
+            return null;
         }
+
+        List<Cell> path = new ArrayList<>();
+
+        for (Cell current = target;
+             current != null;
+             current = parent.get(current)) {
+
+            path.add(current);
+        }
+
+        Collections.reverse(path);
+
         return path;
     }
 
-    private static List<Cell> getAccessibleNeighbors(Cell cell, MazeGrid grid) {
-        List<Cell> list = new ArrayList<>();
-        int[][] dirs = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-        for (int i = 0; i < 4; i++) {
-            if (!cell.walls[i]) {
-                int[] d = dirs[i];
-                Cell n = grid.getCell(cell.x + d[0], cell.y + d[1]);
-                if (n != null) list.add(n);
-            }
-        }
-        return list;
+    private static double centerDistance(Cell a, Cell b) {
+
+        double distance = Math.hypot(
+                a.getScreenX() - b.getScreenX(),
+                a.getScreenY() - b.getScreenY()
+        );
+
+        // A fallback keeps direct solver use safe before a canvas layout pass.
+        return distance > 1.0e-9 ? distance : 1.0;
     }
 }

@@ -3,65 +3,70 @@ package solver;
 import model.Cell;
 import model.MazeGrid;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
 
-public class DfsMazeSolver {
+/** Depth-first path search over open graph edges. */
+public final class DfsMazeSolver {
+    private DfsMazeSolver() { }
+
     public static List<Cell> solve(MazeGrid grid) {
-        Cell start = null, exit = null;
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                if (grid.cells[x][y].isEntrance) start = grid.cells[x][y];
-                if (grid.cells[x][y].isExit) exit = grid.cells[x][y];
-            }
-        }
-        if (start == null || exit == null) return null;
+        if (grid == null) return null;
+
+        Cell start = grid.getEntranceCell();
+        Cell target = grid.getExitCell();
+
+        if (start == null || target == null) return null;
+        if (start == target) return Collections.singletonList(start);
 
         Stack<Cell> stack = new Stack<>();
-        Map<Cell, Cell> parentMap = new HashMap<>();
+
+        Map<Cell, Cell> parent = new HashMap<>();
         Set<Cell> visited = new HashSet<>();
 
         stack.push(start);
         visited.add(start);
 
-        boolean found = false;
         while (!stack.isEmpty()) {
-            Cell curr = stack.pop();
-            if (curr == exit) {
-                found = true;
-                break;
+
+            Cell current = stack.pop();
+
+            if (current == target) {
+
+                List<Cell> path = new ArrayList<>();
+
+                for (Cell cell = target;
+                     cell != null;
+                     cell = parent.get(cell)) {
+
+                    path.add(cell);
+                }
+
+                Collections.reverse(path);
+
+                return path;
             }
 
-            List<Cell> neighbors = getAccessibleNeighbors(curr, grid);
-            for (Cell n : neighbors) {
-                if (!visited.contains(n)) {
-                    visited.add(n);
-                    parentMap.put(n, curr);
-                    stack.push(n);
+            for (Map.Entry<Cell, Boolean> edge
+                    : current.getNeighbors().entrySet()) {
+
+                Cell neighbor = edge.getKey();
+
+                if (Boolean.TRUE.equals(edge.getValue())
+                        && visited.add(neighbor)) {
+
+                    parent.put(neighbor, current);
+                    stack.push(neighbor);
                 }
             }
         }
 
-        if (!found) return null;
-
-        List<Cell> path = new ArrayList<>();
-        Cell curr = exit;
-        while (curr != null) {
-            path.add(0, curr);
-            curr = parentMap.get(curr);
-        }
-        return path;
-    }
-
-    private static List<Cell> getAccessibleNeighbors(Cell cell, MazeGrid grid) {
-        List<Cell> list = new ArrayList<>();
-        int[][] dirs = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-        for (int i = 0; i < 4; i++) {
-            if (!cell.walls[i]) {
-                int[] d = dirs[i];
-                Cell n = grid.getCell(cell.x + d[0], cell.y + d[1]);
-                if (n != null) list.add(n);
-            }
-        }
-        return list;
+        return null;
     }
 }

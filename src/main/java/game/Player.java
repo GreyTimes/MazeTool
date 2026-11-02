@@ -3,53 +3,112 @@ package game;
 import model.Cell;
 import model.MazeGrid;
 
+import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Queue;
+
+/** Player state and graph-based discovery for every supported maze topology. */
 public class Player {
     private Cell currentCell;
-    private int steps = 0;
+    private int steps;
 
     public void spawn(MazeGrid grid) {
-        steps = 1;
-        currentCell = null;
-        // Shape-agnostic: search all cells for the designated entrance
-        for (Cell c : grid.getAllCells()) {
-            if (c.isEntrance) {
-                currentCell = c;
-                break;
-            }
+        steps = 0;
+
+        currentCell = grid == null
+                ? null
+                : grid.getEntranceCell();
+
+        if (currentCell != null) {
+            steps = 1;
         }
     }
 
-    // New graph-based movement method that replaces dx, dy, and wallIndex
+    /** Moves only across a real, currently open graph edge. */
     public boolean moveToCell(Cell nextCell) {
-        if (nextCell != null) {
-            currentCell = nextCell;
-            steps++;
-            return true;
+
+        if (currentCell == null
+                || nextCell == null
+                || !currentCell.isPassageOpenTo(nextCell)) {
+            return false;
         }
-        return false;
+
+        currentCell = nextCell;
+        steps++;
+
+        return true;
     }
 
-    // Helper to reveal cells around the player based on fog radius (shape-agnostic)
-    public void updateDiscovery(MazeGrid grid, boolean fogActive, int fogRadius) {
-        if (grid == null || currentCell == null) return;
+    /**
+     * Reveals cells by topological graph distance, not by x/y differences.
+     * Visibility distance follows cell adjacency regardless of wall state,
+     * matching the previous behavior of revealing nearby cells through walls.
+     */
+    public void updateDiscovery(
+            MazeGrid grid,
+            boolean fogActive,
+            int fogRadius
+    ) {
+        if (grid == null) {
+            return;
+        }
 
-        for (Cell c : grid.getAllCells()) {
-            if (!fogActive) {
-                c.discovered = true;
-            } else {
-                // Using coordinate difference or graph distance.
-                // For a general grid, Euclidean/Manhattan works if x/y are projected,
-                // but looping through all cells and checking graph distance is even safer.
-                double dist = Math.abs(c.x - currentCell.x) + Math.abs(c.y - currentCell.y);
-                if (dist <= fogRadius) {
-                    c.discovered = true;
+        if (!fogActive) {
+            for (Cell cell : grid.getAllCells()) {
+                cell.discovered = true;
+            }
+            return;
+        }
+
+        if (currentCell == null) {
+            return;
+        }
+
+        int radius = Math.max(0, fogRadius);
+
+        Queue<Cell> queue = new ArrayDeque<>();
+        Map<Cell, Integer> distance = new HashMap<>();
+
+        queue.add(currentCell);
+        distance.put(currentCell, 0);
+
+        currentCell.discovered = true;
+
+        while (!queue.isEmpty()) {
+
+            Cell current = queue.remove();
+
+            int currentDistance = distance.get(current);
+
+            if (currentDistance >= radius) {
+                continue;
+            }
+
+            for (Cell neighbor : current.getAdjacentCells()) {
+
+                if (!distance.containsKey(neighbor)) {
+
+                    int nextDistance = currentDistance + 1;
+
+                    distance.put(neighbor, nextDistance);
+
+                    neighbor.discovered = true;
+
+                    queue.add(neighbor);
                 }
             }
         }
     }
 
-    public Cell getCurrentCell() { return currentCell; }
-    public int getSteps() { return steps; }
+    public Cell getCurrentCell() {
+        return currentCell;
+    }
+
+    public int getSteps() {
+        return steps;
+    }
+
     public void reset() {
         currentCell = null;
         steps = 0;
