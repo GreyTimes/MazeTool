@@ -9,8 +9,9 @@ public class Player {
 
     public void spawn(MazeGrid grid) {
         steps = 1;
-        for (int y = 0; y < grid.rows; y++) {
-            Cell c = grid.getCell(0, y);
+        currentCell = null;
+        // Shape-agnostic: search all cells for the designated entrance
+        for (Cell c : grid.getAllCells()) {
             if (c.isEntrance) {
                 currentCell = c;
                 break;
@@ -18,10 +19,8 @@ public class Player {
         }
     }
 
-    public boolean move(int dx, int dy, int wallIndex, MazeGrid grid) {
-        if (currentCell == null || currentCell.walls[wallIndex]) return false;
-
-        Cell nextCell = grid.getCell(currentCell.x + dx, currentCell.y + dy);
+    // New graph-based movement method that replaces dx, dy, and wallIndex
+    public boolean moveToCell(Cell nextCell) {
         if (nextCell != null) {
             currentCell = nextCell;
             steps++;
@@ -30,20 +29,20 @@ public class Player {
         return false;
     }
 
-    // Helper to reveal cells around the player based on fog radius
+    // Helper to reveal cells around the player based on fog radius (shape-agnostic)
     public void updateDiscovery(MazeGrid grid, boolean fogActive, int fogRadius) {
         if (grid == null || currentCell == null) return;
 
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                Cell c = grid.cells[x][y];
-                if (!fogActive) {
+        for (Cell c : grid.getAllCells()) {
+            if (!fogActive) {
+                c.discovered = true;
+            } else {
+                // Using coordinate difference or graph distance.
+                // For a general grid, Euclidean/Manhattan works if x/y are projected,
+                // but looping through all cells and checking graph distance is even safer.
+                double dist = Math.abs(c.x - currentCell.x) + Math.abs(c.y - currentCell.y);
+                if (dist <= fogRadius) {
                     c.discovered = true;
-                } else {
-                    int dist = Math.abs(c.x - currentCell.x) + Math.abs(c.y - currentCell.y);
-                    if (dist <= fogRadius) {
-                        c.discovered = true;
-                    }
                 }
             }
         }

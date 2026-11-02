@@ -16,6 +16,7 @@ import javafx.util.Duration;
 
 import model.Cell;
 import model.MazeGrid;
+import model.TopologyType;
 import view.MazeCanvas;
 import generator.*;
 import solver.BfsMazeSolver;
@@ -27,7 +28,6 @@ import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Random;
 
 public class MazeGeneratorApp extends Application {
 
@@ -37,6 +37,7 @@ public class MazeGeneratorApp extends Application {
     private Label statsLabel;
     private ComboBox<String> algorithmCombo;
     private ComboBox<String> solverCombo;
+    private ComboBox<TopologyType> shapeCombo;
     private ToggleButton playModeToggle;
     private ToggleButton fogOfWarToggle;
     private ToggleButton showSolutionToggle;
@@ -52,6 +53,13 @@ public class MazeGeneratorApp extends Application {
         primaryStage.setTitle("Customizable JavaFX Maze Generator & Solver");
 
         mazeCanvas = new MazeCanvas(600, 600);
+
+        Label shapeHeader = new Label("Maze Layout Shape:");
+        Label shapeInfo = createInfoIcon("Selects the geometric topology layout for the maze.");
+        shapeCombo = new ComboBox<>();
+        shapeCombo.getItems().addAll(TopologyType.values());
+        shapeCombo.setValue(TopologyType.RECTANGULAR);
+        shapeCombo.setMaxWidth(Double.MAX_VALUE);
 
         Label algoHeader = new Label("Gen Algorithm:");
         Label algoInfo = createInfoIcon("Generation Algorithms:\n" +
@@ -251,6 +259,7 @@ public class MazeGeneratorApp extends Application {
         HBox statsHeaderBox = new HBox(5, new Label("Maze Metrics"), statsInfo);
 
         VBox controls = new VBox(6,
+                new HBox(5, shapeHeader, shapeInfo), shapeCombo,
                 new HBox(5, algoHeader, algoInfo), algorithmCombo,
                 new HBox(5, solverHeader, solverInfo), solverCombo,
                 playBox,
@@ -350,18 +359,42 @@ public class MazeGeneratorApp extends Application {
         scene.setOnKeyPressed(event -> {
             if (!isPlayMode || grid == null || player.getCurrentCell() == null) return;
 
-            int dx = 0, dy = 0;
-            int wallIndex = -1;
+            Cell current = player.getCurrentCell();
+            Cell targetCell = null;
 
+            // Determine desired screen direction based on WASD
+            double targetDx = 0, targetDy = 0;
             switch (event.getCode()) {
-                case W -> { dy = -1; wallIndex = 0; }
-                case D -> { dx = 1; wallIndex = 1; }
-                case S -> { dy = 1; wallIndex = 2; }
-                case A -> { dx = -1; wallIndex = 3; }
+                case W -> targetDy = -1; // Up
+                case S -> targetDy = 1;  // Down
+                case A -> targetDx = -1; // Left
+                case D -> targetDx = 1;  // Right
                 default -> { return; }
             }
 
-            if (player.move(dx, dy, wallIndex, grid)) {
+            // Find the closest open neighbor in that general screen direction
+            double bestScore = Double.NEGATIVE_INFINITY;
+            for (java.util.Map.Entry<Cell, Boolean> entry : current.getNeighbors().entrySet()) {
+                Cell neighbor = entry.getKey();
+                boolean isOpen = entry.getValue();
+
+                if (isOpen) {
+                    // Calculate vector from current to neighbor
+                    double ndx = neighbor.getScreenX() - current.getScreenX();
+                    double ndy = neighbor.getScreenY() - current.getScreenY();
+
+                    // Dot product alignment score with desired direction
+                    double alignment = (ndx * targetDx) + (ndy * targetDy);
+                    if (alignment > 0 && alignment > bestScore) {
+                        bestScore = alignment;
+                        targetCell = neighbor;
+                    }
+                }
+            }
+
+            // If a valid open neighbor exists in that direction, move to it
+            if (targetCell != null) {
+                player.moveToCell(targetCell); // Move directly to the cell graph node
                 player.updateDiscovery(grid, isFogOfWar, fogRadius);
                 mazeCanvas.setPlayerCell(player.getCurrentCell());
                 mazeCanvas.setFogOfWarActive(isFogOfWar, fogRadius);
@@ -397,13 +430,51 @@ public class MazeGeneratorApp extends Application {
     private void startGenerationAnimation(int width, int height, double animDelay, double complexityFactor, String algorithm) {
         if (animTimeline != null) animTimeline.stop();
 
+        // 1. Get the selected topology from the UI dropdown
+        TopologyType topology = shapeCombo != null ? shapeCombo.getValue() : TopologyType.RECTANGULAR;
+
+        // 2. Dynamically swap the renderer based on the selected shape
+        switch (topology) {
+            case RECTANGULAR -> mazeCanvas.setRenderer(new view.RectangularRenderer());
+            case HEXAGONAL -> mazeCanvas.setRenderer(new view.HexagonalRenderer());
+            case CIRCULAR -> mazeCanvas.setRenderer(new view.CircularRenderer());
+            case TRIANGULAR -> mazeCanvas.setRenderer(new view.TriangularRenderer());
+        }
+
+        // 3. Initialize the grid (currently rectangular, but ready for custom builders later)
         grid = new MazeGrid(width, height);
 
-        // Dynamically adjust canvas dimensions to match rectangular aspect ratios
+        // Dynamically adjust canvas dimensions (can be customized per shape later)
         double maxDimension = 600.0;
         double cellDim = maxDimension / Math.max(width, height);
-        mazeCanvas.setWidth(width * cellDim);
-        mazeCanvas.setHeight(height * cellDim);
+
+        switch (topology) {
+            case RECTANGULAR -> {
+                // Standard orthogonal scaling
+                mazeCanvas.setWidth(width * cellDim);
+                mazeCanvas.setHeight(height * cellDim);
+
+                for (Cell c : grid.getAllCells()) {
+                    c.screenX = c.x * cellDim;
+                    c.screenY = c.y * cellDim;
+                }
+            }
+            case CIRCULAR -> {
+                // Strict 1:1 square ratio for polar/concentric rings
+                mazeCanvas.setWidth(maxDimension);
+                mazeCanvas.setHeight(maxDimension);
+            }
+            case HEXAGONAL -> {
+                // Custom sizing for hex grids (adjusting for row staggering/aspect ratios)
+                mazeCanvas.setWidth(width * cellDim);
+                mazeCanvas.setHeight(height * cellDim); // You can fine-tune multipliers here later
+            }
+            case TRIANGULAR -> {
+                // Custom sizing for triangular grids (factoring in equilateral height ratios)
+                mazeCanvas.setWidth(width * cellDim);
+                mazeCanvas.setHeight(height * cellDim); // You can fine-tune multipliers here later
+            }
+        }
 
         for (Cell c : grid.getAllCells()) {
             c.discovered = !isFogOfWar;
@@ -439,7 +510,16 @@ public class MazeGeneratorApp extends Application {
             if (!running) {
                 animTimeline.stop();
                 grid.applyComplexityFactor(complexityFactor);
-                grid.createRectangularOpenings();
+
+                // 4. Shape-agnostic openings creation
+                switch (topology) {
+                    case RECTANGULAR -> grid.createRectangularOpenings();
+                    // Later when you implement them:
+                    // case HEXAGONAL -> grid.createHexagonalOpenings();
+                    // case CIRCULAR -> grid.createCircularOpenings();
+                    // case TRIANGULAR -> grid.createTriangularOpenings();
+                }
+
                 mazeCanvas.setCurrentHead(null);
 
                 if (showSolutionToggle.isSelected()) {
