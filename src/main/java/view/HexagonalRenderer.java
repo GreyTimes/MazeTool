@@ -1,22 +1,12 @@
+
 package view;
 
-import javafx.scene.canvas.GraphicsContext;
-import model.Cell;
-import model.MazeGrid;
-import java.util.List;
+/**
+ * Renderer for pointy-top hexagonal tessellations.
+ *
+ * Geometry, walls, fog, paths, highlighting and player rendering
+ * are inherited from PolygonMazeRenderer.
+ */
+public final class HexagonalRenderer extends PolygonMazeRenderer {
 
-public class HexagonalRenderer implements MazeRenderer {
-    private boolean darkMode = true;
-
-    @Override
-    public void setDarkMode(boolean darkMode) {
-        this.darkMode = darkMode;
-    }
-
-    @Override
-    public void render(GraphicsContext gc, double width, double height, MazeGrid grid,
-                       Cell playerCell, List<Cell> solvedPath, Cell currentHead,
-                       boolean fogOfWarActive, int fogRadius) {
-        // Η λογική σχεδίασης για τα εξάγωνα θα προστεθεί εδώ αργότερα
-    }
 }

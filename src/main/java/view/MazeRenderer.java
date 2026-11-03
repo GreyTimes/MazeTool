@@ -1,6 +1,7 @@
 package view;
 
 import javafx.scene.canvas.GraphicsContext;
+
 import model.Cell;
 import model.MazeGrid;
 
@@ -23,7 +24,9 @@ public interface MazeRenderer {
 
     void setDarkMode(boolean darkMode);
 
-    /** Optional topology-specific interaction hooks. */
+
+    // Optional topology-specific interaction hooks.
+
     default void setHighlightedCells(Collection<Cell> cells) {
     }
 
@@ -36,7 +39,9 @@ public interface MazeRenderer {
     default void clearPlayerScreenPosition() {
     }
 
-    /** Finds the cell underneath a canvas coordinate. */
+
+    // Mouse hit testing.
+
     default Cell findCellAt(
             double x,
             double y,

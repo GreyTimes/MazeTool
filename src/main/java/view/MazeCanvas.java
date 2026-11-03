@@ -12,32 +12,46 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-/** Canvas facade that delegates drawing and topology-specific hit testing. */
+/**
+ * Canvas facade shared by rectangular, polar and polygonal renderers.
+ */
 public class MazeCanvas extends Canvas {
 
     private MazeGrid grid;
+
     private List<Cell> solvedPath;
 
     private Cell currentHead;
+
     private Cell playerCell;
 
     private boolean fogOfWarActive;
+
     private int fogRadius = 2;
 
     private boolean darkMode = true;
 
-    private List<Cell> highlightedCells = Collections.emptyList();
+    private List<Cell> highlightedCells =
+            Collections.emptyList();
+
     private Cell hoveredCell;
 
-    private MazeRenderer renderer = new RectangularRenderer();
+    private MazeRenderer renderer =
+            new RectangularRenderer();
+
 
     public MazeCanvas(double width, double height) {
+
         super(width, height);
+
         draw();
     }
 
+
     public void setRenderer(MazeRenderer renderer) {
+
         if (renderer == null) {
+
             throw new IllegalArgumentException(
                     "Renderer cannot be null."
             );
@@ -46,53 +60,93 @@ public class MazeCanvas extends Canvas {
         this.renderer = renderer;
 
         renderer.setDarkMode(darkMode);
-        renderer.clearPlayerScreenPosition();
+
         renderer.setHighlightedCells(highlightedCells);
+
         renderer.setHoveredCell(hoveredCell);
+
+        renderer.clearPlayerScreenPosition();
     }
 
+
     public void setGrid(MazeGrid grid) {
+
         this.grid = grid;
 
         highlightedCells = Collections.emptyList();
+
         hoveredCell = null;
 
         renderer.setHighlightedCells(highlightedCells);
+
         renderer.setHoveredCell(null);
+
         renderer.clearPlayerScreenPosition();
 
         draw();
     }
 
+
+    public MazeGrid getGrid() {
+        return grid;
+    }
+
+
     public void setSolvedPath(List<Cell> solvedPath) {
+
         this.solvedPath = solvedPath;
+
         draw();
     }
+
 
     public void setCurrentHead(Cell currentHead) {
+
         this.currentHead = currentHead;
+
         draw();
     }
+
 
     public void setPlayerCell(Cell playerCell) {
+
         this.playerCell = playerCell;
+
         draw();
     }
 
-    public void setFogOfWarActive(boolean active, int radius) {
+
+    public void setFogOfWarActive(
+            boolean active,
+            int radius
+    ) {
+
         this.fogOfWarActive = active;
+
         this.fogRadius = radius;
+
         draw();
     }
+
 
     public void setDarkMode(boolean darkMode) {
+
         this.darkMode = darkMode;
+
         renderer.setDarkMode(darkMode);
+
         draw();
     }
 
-    /** Highlights the legal open neighbors of the current player cell. */
-    public void setHighlightedCells(Collection<Cell> cells) {
+
+    // ============================================================
+    // INTERACTION
+    // ============================================================
+
+    public void setHighlightedCells(
+            Collection<Cell> cells
+    ) {
+
         highlightedCells = cells == null
                 ? Collections.emptyList()
                 : new ArrayList<>(cells);
@@ -102,25 +156,38 @@ public class MazeCanvas extends Canvas {
         draw();
     }
 
+
     public void setHoveredCell(Cell cell) {
+
         hoveredCell = cell;
+
         renderer.setHoveredCell(cell);
+
         draw();
     }
 
-    /** Used while the player marker is between two cell centers. */
-    public void setPlayerScreenPosition(double x, double y) {
+
+    public void setPlayerScreenPosition(
+            double x,
+            double y
+    ) {
+
         renderer.setPlayerScreenPosition(x, y);
+
         draw();
     }
+
 
     public void clearPlayerScreenPosition() {
+
         renderer.clearPlayerScreenPosition();
+
         draw();
     }
 
-    /** Returns the cell underneath the mouse, if supported by the renderer. */
+
     public Cell findCellAt(double x, double y) {
+
         return renderer.findCellAt(
                 x,
                 y,
@@ -130,8 +197,15 @@ public class MazeCanvas extends Canvas {
         );
     }
 
+
+    // ============================================================
+    // DRAW
+    // ============================================================
+
     public void draw() {
-        GraphicsContext gc = getGraphicsContext2D();
+
+        GraphicsContext gc =
+                getGraphicsContext2D();
 
         renderer.render(
                 gc,

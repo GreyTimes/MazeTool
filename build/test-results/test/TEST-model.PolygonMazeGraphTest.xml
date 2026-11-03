@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="model.PolygonMazeGraphTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-03T10:15:18.246Z" hostname="HOMELAB" time="0.155">
+  <properties/>
+  <testcase name="polygonAdjacencyIsSymmetric()" classname="model.PolygonMazeGraphTest" time="0.025"/>
+  <testcase name="allFiveGeneratorsAndThreeSolversWorkOnBothTopologies()" classname="model.PolygonMazeGraphTest" time="0.062"/>
+  <testcase name="maximumPolygonSizesRemainConnected()" classname="model.PolygonMazeGraphTest" time="0.003"/>
+  <testcase name="polygonGridsHaveExpectedCellCounts()" classname="model.PolygonMazeGraphTest" time="0.001"/>
+  <testcase name="polygonOpeningsChooseTheFarthestBoundaryPair()" classname="model.PolygonMazeGraphTest" time="0.063"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

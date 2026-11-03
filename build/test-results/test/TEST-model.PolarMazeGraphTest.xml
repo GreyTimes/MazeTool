@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="model.PolarMazeGraphTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-02T22:33:51.306Z" hostname="HOMELAB" time="0.024">
+<testsuite name="model.PolarMazeGraphTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-03T10:15:18.226Z" hostname="HOMELAB" time="0.019">
   <properties/>
   <testcase name="allFiveGeneratorsProduceConnectedPolarSpanningTrees()" classname="model.PolarMazeGraphTest" time="0.005"/>
-  <testcase name="allThreeSolversFindValidPolarRoutes()" classname="model.PolarMazeGraphTest" time="0.006"/>
-  <testcase name="circularOpeningsChooseTheMostDistantOuterRingPair()" classname="model.PolarMazeGraphTest" time="0.005"/>
+  <testcase name="allThreeSolversFindValidPolarRoutes()" classname="model.PolarMazeGraphTest" time="0.005"/>
+  <testcase name="circularOpeningsChooseTheMostDistantOuterRingPair()" classname="model.PolarMazeGraphTest" time="0.004"/>
   <testcase name="allFiveGeneratorsRemainCompatibleWithRectangularGrids()" classname="model.PolarMazeGraphTest" time="0.001"/>
-  <testcase name="playerMovementAndFogUseGraphAdjacency()" classname="model.PolarMazeGraphTest" time="0.002"/>
+  <testcase name="playerMovementAndFogUseGraphAdjacency()" classname="model.PolarMazeGraphTest" time="0.001"/>
   <testcase name="polarGridHasSymmetricConnectedAdjacencyAndNoCartesianArray()" classname="model.PolarMazeGraphTest" time="0.002"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
