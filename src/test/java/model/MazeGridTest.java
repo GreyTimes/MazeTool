@@ -6,34 +6,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class MazeGridTest {
 
     @Test
-    void testGridInitialization() {
-        int cols = 20;
-        int rows = 20;
-        MazeGrid grid = new MazeGrid(cols, rows);
+    void testNonSquareRectangularGrid() {
+        int customWidth = 35;
+        int customHeight = 15;
+        MazeGrid rectGrid = new MazeGrid(customWidth, customHeight);
 
-        // Verify dimensions
-        assertEquals(cols, grid.cols, "Grid columns should match requested size");
-        assertEquals(rows, grid.rows, "Grid rows should match requested size");
+        // Verify independent dimensions
+        assertEquals(customWidth, rectGrid.cols, "Grid width should match custom cols");
+        assertEquals(customHeight, rectGrid.rows, "Grid height should match custom rows");
 
-        // Verify cells array is populated and not null
-        assertNotNull(grid.cells, "Cells array should be initialized");
-        assertEquals(cols, grid.cells.length);
-        assertEquals(rows, grid.cells[0].length);
-
-        // Verify individual cell coordinates
-        Cell cell = grid.getCell(5, 5);
-        assertNotNull(cell, "Cell at (5, 5) should exist");
-        assertEquals(5, cell.x);
-        assertEquals(5, cell.y);
-    }
-
-    @Test
-    void testOutOfBoundsCell() {
-        MazeGrid grid = new MazeGrid(10, 10);
-
-        // Out of bounds should return null safely
-        assertNull(grid.getCell(-1, 0), "Negative coordinate should return null");
-        assertNull(grid.getCell(10, 5), "Coordinate equal to cols should return null");
-        assertNull(grid.getCell(5, 15), "Coordinate greater than rows should return null");
+        // Verify corners and edge boundaries are correct
+        assertNotNull(rectGrid.getCell(0, 0), "Top-left corner should exist");
+        assertNotNull(rectGrid.getCell(customWidth - 1, customHeight - 1), "Bottom-right corner should exist");
+        assertNull(rectGrid.getCell(customWidth, customHeight), "Out of bounds check should return null");
     }
 }

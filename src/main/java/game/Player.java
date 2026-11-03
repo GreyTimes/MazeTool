@@ -3,54 +3,112 @@ package game;
 import model.Cell;
 import model.MazeGrid;
 
+import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Queue;
+
+/** Player state and graph-based discovery for every supported maze topology. */
 public class Player {
     private Cell currentCell;
-    private int steps = 0;
+    private int steps;
 
     public void spawn(MazeGrid grid) {
-        steps = 1;
-        for (int y = 0; y < grid.rows; y++) {
-            Cell c = grid.getCell(0, y);
-            if (c.isEntrance) {
-                currentCell = c;
-                break;
+        steps = 0;
+
+        currentCell = grid == null
+                ? null
+                : grid.getEntranceCell();
+
+        if (currentCell != null) {
+            steps = 1;
+        }
+    }
+
+    /** Moves only across a real, currently open graph edge. */
+    public boolean moveToCell(Cell nextCell) {
+
+        if (currentCell == null
+                || nextCell == null
+                || !currentCell.isPassageOpenTo(nextCell)) {
+            return false;
+        }
+
+        currentCell = nextCell;
+        steps++;
+
+        return true;
+    }
+
+    /**
+     * Reveals cells by topological graph distance, not by x/y differences.
+     * Visibility distance follows cell adjacency regardless of wall state,
+     * matching the previous behavior of revealing nearby cells through walls.
+     */
+    public void updateDiscovery(
+            MazeGrid grid,
+            boolean fogActive,
+            int fogRadius
+    ) {
+        if (grid == null) {
+            return;
+        }
+
+        if (!fogActive) {
+            for (Cell cell : grid.getAllCells()) {
+                cell.discovered = true;
             }
+            return;
         }
-    }
 
-    public boolean move(int dx, int dy, int wallIndex, MazeGrid grid) {
-        if (currentCell == null || currentCell.walls[wallIndex]) return false;
-
-        Cell nextCell = grid.getCell(currentCell.x + dx, currentCell.y + dy);
-        if (nextCell != null) {
-            currentCell = nextCell;
-            steps++;
-            return true;
+        if (currentCell == null) {
+            return;
         }
-        return false;
-    }
 
-    // Helper to reveal cells around the player based on fog radius
-    public void updateDiscovery(MazeGrid grid, boolean fogActive, int fogRadius) {
-        if (grid == null || currentCell == null) return;
+        int radius = Math.max(0, fogRadius);
 
-        for (int x = 0; x < grid.cols; x++) {
-            for (int y = 0; y < grid.rows; y++) {
-                Cell c = grid.cells[x][y];
-                if (!fogActive) {
-                    c.discovered = true;
-                } else {
-                    int dist = Math.abs(c.x - currentCell.x) + Math.abs(c.y - currentCell.y);
-                    if (dist <= fogRadius) {
-                        c.discovered = true;
-                    }
+        Queue<Cell> queue = new ArrayDeque<>();
+        Map<Cell, Integer> distance = new HashMap<>();
+
+        queue.add(currentCell);
+        distance.put(currentCell, 0);
+
+        currentCell.discovered = true;
+
+        while (!queue.isEmpty()) {
+
+            Cell current = queue.remove();
+
+            int currentDistance = distance.get(current);
+
+            if (currentDistance >= radius) {
+                continue;
+            }
+
+            for (Cell neighbor : current.getAdjacentCells()) {
+
+                if (!distance.containsKey(neighbor)) {
+
+                    int nextDistance = currentDistance + 1;
+
+                    distance.put(neighbor, nextDistance);
+
+                    neighbor.discovered = true;
+
+                    queue.add(neighbor);
                 }
             }
         }
     }
 
-    public Cell getCurrentCell() { return currentCell; }
-    public int getSteps() { return steps; }
+    public Cell getCurrentCell() {
+        return currentCell;
+    }
+
+    public int getSteps() {
+        return steps;
+    }
+
     public void reset() {
         currentCell = null;
         steps = 0;
