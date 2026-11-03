@@ -51,6 +51,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+
 /**
  * JavaFX application for rectangular, circular, hexagonal,
  * and triangular maze generation and solving.
@@ -356,6 +360,24 @@ public class MazeGeneratorApp extends Application {
         exportBox.setAlignment(Pos.CENTER_LEFT);
         exportBtn.setOnAction(event -> exportMazeImage(primaryStage));
 
+        // SAVE & LOAD LABYRINTH ACTIONS
+
+        Button saveMazeBtn = new Button("Save Labyrinth");
+        saveMazeBtn.setMaxWidth(Double.MAX_VALUE);
+        Label saveInfo = createInfoIcon("Serializes and saves the current maze to a .maze file.");
+        HBox saveBox = new HBox(5, saveMazeBtn, saveInfo);
+        HBox.setHgrow(saveMazeBtn, Priority.ALWAYS);
+        saveBox.setAlignment(Pos.CENTER_LEFT);
+        saveMazeBtn.setOnAction(event -> saveLabyrinthFile(primaryStage));
+
+        Button loadMazeBtn = new Button("Load Labyrinth");
+        loadMazeBtn.setMaxWidth(Double.MAX_VALUE);
+        Label loadInfo = createInfoIcon("Loads and deserializes a maze from a .maze file.");
+        HBox loadBox = new HBox(5, loadMazeBtn, loadInfo);
+        HBox.setHgrow(loadMazeBtn, Priority.ALWAYS);
+        loadBox.setAlignment(Pos.CENTER_LEFT);
+        loadMazeBtn.setOnAction(event -> loadLabyrinthFile(primaryStage));
+
         // STATISTICS
 
         statsLabel = new Label(
@@ -409,6 +431,8 @@ public class MazeGeneratorApp extends Application {
                 genBox,
                 solutionBox,
                 exportBox,
+                saveBox,
+                loadBox,
 
                 new Separator(),
 
@@ -827,6 +851,221 @@ public class MazeGeneratorApp extends Application {
         infoLabel.getProperties().put("mazeInfoTooltip", tooltip);
         Tooltip.install(infoLabel, tooltip);
         return infoLabel;
+    }
+
+    // ENHANCED IMAGE EXPORT (PNG / JPG WITH BACKGROUND FALLBACK)
+
+    private void exportMazeImage(Stage owner) {
+        javafx.scene.control.ChoiceDialog<String> formatDialog = new javafx.scene.control.ChoiceDialog<>("PNG", "PNG", "JPG");
+        formatDialog.setTitle("Export Image Format");
+        formatDialog.setHeaderText("Choose Image Export Format");
+        formatDialog.setContentText("Format:");
+
+        java.util.Optional<String> result = formatDialog.showAndWait();
+        if (result.isEmpty()) {
+            return;
+        }
+        String format = result.get();
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Maze Image (" + format + ")");
+        if ("JPG".equalsIgnoreCase(format)) {
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JPG Image (*.jpg)", "*.jpg"));
+            fileChooser.setInitialFileName("maze.jpg");
+        } else {
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image (*.png)", "*.png"));
+            fileChooser.setInitialFileName("maze.png");
+        }
+
+        File file = fileChooser.showSaveDialog(owner);
+        if (file == null) {
+            return;
+        }
+
+        WritableImage image = new WritableImage((int) mazeCanvas.getWidth(), (int) mazeCanvas.getHeight());
+        mazeCanvas.snapshot(null, image);
+        java.awt.image.BufferedImage bImage = SwingFXUtils.fromFXImage(image, null);
+
+        try {
+            if ("JPG".equalsIgnoreCase(format)) {
+                // JPG fallback: paint a solid background (dark or light theme)
+                java.awt.image.BufferedImage solidImage = new java.awt.image.BufferedImage(
+                        bImage.getWidth(), bImage.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB
+                );
+                java.awt.Graphics2D g2d = solidImage.createGraphics();
+                g2d.setColor(themeToggle.isSelected() ? java.awt.Color.BLACK : java.awt.Color.WHITE);
+                g2d.fillRect(0, 0, solidImage.getWidth(), solidImage.getHeight());
+                g2d.drawImage(bImage, 0, 0, null);
+                g2d.dispose();
+                ImageIO.write(solidImage, "jpg", file);
+            } else {
+                ImageIO.write(bImage, "png", file);
+            }
+        } catch (IOException ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save image: " + ex.getMessage(), ButtonType.OK);
+            alert.show();
+        }
+    }
+
+    // SAVE LABYRINTH (.maze Serialization using Gson)
+
+    private void saveLabyrinthFile(Stage owner) {
+        if (grid == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING, "No maze generated to save.", ButtonType.OK);
+            alert.show();
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Labyrinth File");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Labyrinth Files (*.maze)", "*.maze"));
+        fileChooser.setInitialFileName("labyrinth.maze");
+        File file = fileChooser.showSaveDialog(owner);
+        if (file == null) {
+            return;
+        }
+
+        try {
+            com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
+
+            // Capture state into a DTO or JSON structure
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("cols", grid.cols);
+            data.put("rows", grid.rows);
+            data.put("topology", grid.getTopology().name());
+            data.put("polarRingCount", grid.getPolarRingCount());
+
+            // Serialize cell states, walls, and discoveries
+            java.util.List<java.util.Map<String, Object>> cellList = new java.util.ArrayList<>();
+            for (Cell cell : grid.getAllCells()) {
+                java.util.Map<String, Object> cData = new java.util.HashMap<>();
+                cData.put("x", cell.x);
+                cData.put("y", cell.y);
+                cData.put("screenX", cell.getScreenX());
+                cData.put("screenY", cell.getScreenY());
+                cData.put("discovered", cell.discovered);
+                cData.put("isEntrance", cell.isEntrance);
+                cData.put("isExit", cell.isExit);
+
+                // Map neighbor open states
+                java.util.Map<String, Boolean> neighbors = new java.util.HashMap<>();
+                for (java.util.Map.Entry<Cell, Boolean> entry : cell.getNeighbors().entrySet()) {
+                    neighbors.put(entry.getKey().x + "," + entry.getKey().y, entry.getValue());
+                }
+                cData.put("neighbors", neighbors);
+                cellList.add(cData);
+            }
+            data.put("cells", cellList);
+
+            String json = gson.toJson(data);
+            java.nio.file.Files.writeString(file.toPath(), json, java.nio.charset.StandardCharsets.UTF_8);
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Labyrinth successfully saved!", ButtonType.OK);
+            alert.show();
+        } catch (Exception ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save labyrinth: " + ex.getMessage(), ButtonType.OK);
+            alert.show();
+        }
+    }
+
+    // LOAD LABYRINTH (.maze Deserialization with full state restoration)
+
+    private void loadLabyrinthFile(Stage owner) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Load Labyrinth File");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Labyrinth Files (*.maze)", "*.maze"));
+        File file = fileChooser.showOpenDialog(owner);
+        if (file == null) {
+            return;
+        }
+
+        try {
+            String json = java.nio.file.Files.readString(file.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+            com.google.gson.Gson gson = new com.google.gson.Gson();
+            java.util.Map<?, ?> data = gson.fromJson(json, java.util.Map.class);
+
+            int cols = ((Number) data.get("cols")).intValue();
+            int rows = ((Number) data.get("rows")).intValue();
+            TopologyType topology = TopologyType.valueOf((String) data.get("topology"));
+
+            // Set UI shape combo
+            shapeCombo.setValue(topology);
+            switch (topology) {
+                case RECTANGULAR -> mazeCanvas.setRenderer(new RectangularRenderer());
+                case CIRCULAR -> mazeCanvas.setRenderer(new CircularRenderer());
+                case HEXAGONAL -> mazeCanvas.setRenderer(new HexagonalRenderer());
+                case TRIANGULAR -> mazeCanvas.setRenderer(new TriangularRenderer());
+            }
+
+            // Recreate grid skeleton
+            grid = switch (topology) {
+                case HEXAGONAL, TRIANGULAR -> new MazeGrid(cols, cols, topology);
+                case RECTANGULAR, CIRCULAR -> new MazeGrid(cols, rows, topology);
+            };
+
+            // Apply layout dimensions
+            switch (topology) {
+                case RECTANGULAR -> {
+                    double cellSize = CANVAS_SIZE / Math.max(cols, rows);
+                    mazeCanvas.setWidth(cols * cellSize);
+                    mazeCanvas.setHeight(rows * cellSize);
+                }
+                case CIRCULAR -> grid.layoutCircularGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
+                case HEXAGONAL -> grid.layoutHexagonalGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
+                case TRIANGULAR -> grid.layoutTriangularGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
+            }
+
+            // Restore cell states, wall openings, and endpoints from JSON
+            java.util.List<?> cellList = (java.util.List<?>) data.get("cells");
+
+            // Map existing grid cells by coordinate string for easy lookup
+            java.util.Map<String, Cell> cellMap = new java.util.HashMap<>();
+            for (Cell cell : grid.getAllCells()) {
+                cellMap.put(cell.x + "," + cell.y, cell);
+            }
+
+            for (Object rawCData : cellList) {
+                java.util.Map<?, ?> cData = (java.util.Map<?, ?>) rawCData;
+                int cx = ((Number) cData.get("x")).intValue();
+                int cy = ((Number) cData.get("y")).intValue();
+
+                Cell cell = cellMap.get(cx + "," + cy);
+                if (cell != null) {
+                    cell.discovered = (Boolean) cData.get("discovered");
+                    cell.isEntrance = (Boolean) cData.get("isEntrance");
+                    cell.isExit = (Boolean) cData.get("isExit");
+
+                    // Restore open neighbor walls
+                    java.util.Map<?, ?> savedNeighbors = (java.util.Map<?, ?>) cData.get("neighbors");
+                    if (savedNeighbors != null) {
+                        for (java.util.Map.Entry<?, ?> entry : savedNeighbors.entrySet()) {
+                            String targetKey = (String) entry.getKey();
+                            boolean isOpen = (Boolean) entry.getValue();
+                            Cell neighbor = cellMap.get(targetKey);
+                            if (neighbor != null && isOpen) {
+                                cell.getNeighbors().put(neighbor, true);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Refresh canvas display
+            mazeCanvas.setGrid(grid);
+            mazeCanvas.setSolvedPath(null);
+            mazeCanvas.setCurrentHead(null);
+            mazeCanvas.setPlayerCell(null);
+            mazeCanvas.clearPlayerScreenPosition();
+            mazeCanvas.setFogOfWarActive(isFogOfWar, fogRadius);
+            mazeCanvas.draw();
+            updateStatistics(-1);
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Labyrinth loaded successfully!", ButtonType.OK);
+            alert.show();
+        } catch (Exception ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to load labyrinth: " + ex.getMessage(), ButtonType.OK);
+            alert.show();
+        }
     }
 
     // RENDERER SELECTION AND MAZE GENERATION
@@ -1269,24 +1508,6 @@ public class MazeGeneratorApp extends Application {
         alert.show();
     }
 
-    // IMAGE EXPORT
-
-    private void exportMazeImage(Stage owner) {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Maze Image");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image (*.png)", "*.png"));
-        fileChooser.setInitialFileName("maze.png");
-        File file = fileChooser.showSaveDialog(owner);
-        if (file == null) {return;}
-        WritableImage image = new WritableImage((int) mazeCanvas.getWidth(), (int) mazeCanvas.getHeight());
-        mazeCanvas.snapshot(null, image);
-        try {
-            ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
-        } catch (IOException ex) {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save image: " + ex.getMessage(), ButtonType.OK);
-            alert.show();
-        }
-    }
 
     // SOLVE AND DISPLAY PATH
 

@@ -40,6 +40,7 @@ dependencies {
     // JavaFX dependencies (keep your existing ones)
     implementation 'org.openjfx:javafx-controls:17'
     implementation 'org.openjfx:javafx-graphics:17'
+    implementation 'com.google.code.gson:gson:2.10.1'
 
     // JUnit 5 Testing Dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
