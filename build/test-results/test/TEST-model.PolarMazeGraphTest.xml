@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="model.PolarMazeGraphTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-03T10:15:18.226Z" hostname="HOMELAB" time="0.019">
+<testsuite name="model.PolarMazeGraphTest" tests="6" skipped="0" failures="1" errors="0" timestamp="2026-11-03T13:44:06.984Z" hostname="HOMELAB" time="0.03">
   <properties/>
   <testcase name="allFiveGeneratorsProduceConnectedPolarSpanningTrees()" classname="model.PolarMazeGraphTest" time="0.005"/>
   <testcase name="allThreeSolversFindValidPolarRoutes()" classname="model.PolarMazeGraphTest" time="0.005"/>
-  <testcase name="circularOpeningsChooseTheMostDistantOuterRingPair()" classname="model.PolarMazeGraphTest" time="0.004"/>
-  <testcase name="allFiveGeneratorsRemainCompatibleWithRectangularGrids()" classname="model.PolarMazeGraphTest" time="0.001"/>
-  <testcase name="playerMovementAndFogUseGraphAdjacency()" classname="model.PolarMazeGraphTest" time="0.001"/>
-  <testcase name="polarGridHasSymmetricConnectedAdjacencyAndNoCartesianArray()" classname="model.PolarMazeGraphTest" time="0.002"/>
+  <testcase name="circularOpeningsChooseTheMostDistantOuterRingPair()" classname="model.PolarMazeGraphTest" time="0.012">
+    <failure message="org.opentest4j.AssertionFailedError: Entrance and exit must be a diameter pair restricted to the outer ring ==&gt; expected: &lt;25&gt; but was: &lt;22&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: Entrance and exit must be a diameter pair restricted to the outer ring ==&gt; expected: &lt;25&gt; but was: &lt;22&gt;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:563)
+	at model.PolarMazeGraphTest.circularOpeningsChooseTheMostDistantOuterRingPair(PolarMazeGraphTest.java:405)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="allFiveGeneratorsRemainCompatibleWithRectangularGrids()" classname="model.PolarMazeGraphTest" time="0.002"/>
+  <testcase name="playerMovementAndFogUseGraphAdjacency()" classname="model.PolarMazeGraphTest" time="0.002"/>
+  <testcase name="polarGridHasSymmetricConnectedAdjacencyAndNoCartesianArray()" classname="model.PolarMazeGraphTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
