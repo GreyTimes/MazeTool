@@ -308,6 +308,49 @@ public class CircularRenderer implements MazeRenderer {
             );
         }
 
+        // ========================================================
+// ENTRANCE / EXIT MARKERS
+// ========================================================
+
+        double endpointDiameter = Math.max(
+                6.0,
+                Math.min(13.0, scale * 0.045)
+        );
+
+        for (Cell cell : grid.getAllCells()) {
+
+            if (!(cell instanceof PolarCell polar)) {
+                continue;
+            }
+
+            if (fogOfWarActive && !cell.discovered) {
+                continue;
+            }
+
+            if (cell.isEntrance) {
+
+                EndpointMarkerRenderer.draw(
+                        gc,
+                        polar.getScreenX(),
+                        polar.getScreenY(),
+                        endpointDiameter,
+                        entrance,
+                        "S"
+                );
+
+            } else if (cell.isExit) {
+
+                EndpointMarkerRenderer.draw(
+                        gc,
+                        polar.getScreenX(),
+                        polar.getScreenY(),
+                        endpointDiameter,
+                        exit,
+                        "E"
+                );
+            }
+        }
+
         // Generation animation marker.
         if (currentHead instanceof PolarCell headCell
                 && (!fogOfWarActive || currentHead.discovered)) {

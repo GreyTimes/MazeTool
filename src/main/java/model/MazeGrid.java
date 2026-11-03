@@ -39,6 +39,11 @@ public class MazeGrid {
     private Cell entranceCell;
     private Cell exitCell;
 
+    private record BoundaryEdgeCandidate(
+            PolygonCell cell,
+            int edgeIndex,
+            double projection
+    ) { }
 
     // ============================================================
     // EDGE MATCHING DATA
@@ -1169,42 +1174,229 @@ public class MazeGrid {
     // RECTANGULAR OPENINGS
     // ============================================================
 
-    public void createRectangularOpenings() {
+    // ============================================================
+// UNIFIED ENTRANCE / EXIT CONFIGURATION
+// ============================================================
 
-        if (isGeometric() || cols < 1 || rows < 1) {
-            return;
+    /**
+     * Creates entrance and exit points according to the selected mode.
+     *
+     * CUSTOM deliberately creates no automatic openings. The application
+     * will wait for the user to click the entrance and exit cells.
+     */
+    public void createOpenings(EntranceExitMode mode) {
+
+        if (mode == null) {
+            mode = EntranceExitMode.LEFT_TO_RIGHT;
         }
 
         clearEntranceAndExitFlags();
 
-        Random random = new Random();
+        if (mode == EntranceExitMode.CUSTOM) {
+            return;
+        }
 
-        int entranceY = random.nextInt(rows);
-        int exitY = random.nextInt(rows);
+        switch (topology) {
 
-        entranceCell = getCell(0, entranceY);
-        exitCell = getCell(cols - 1, exitY);
+            case RECTANGULAR -> {
 
-        entranceCell.walls[3] = false;
-        entranceCell.isEntrance = true;
-        entranceCell.discovered = true;
+                if (mode == EntranceExitMode.LEFT_TO_RIGHT) {
+                    createDirectionalRectangularOpenings(true);
+                } else if (mode == EntranceExitMode.TOP_TO_BOTTOM) {
+                    createDirectionalRectangularOpenings(false);
+                } else {
+                    throw new IllegalArgumentException(
+                            "Center to Outer Edge is only available for circular mazes."
+                    );
+                }
+            }
 
-        exitCell.walls[1] = false;
-        exitCell.isExit = true;
+            case CIRCULAR -> {
+
+                switch (mode) {
+
+                    case LEFT_TO_RIGHT ->
+                            createDirectionalCircularOpenings(
+                                    -1.0, 0.0,
+                                    1.0, 0.0
+                            );
+
+                    case TOP_TO_BOTTOM ->
+                            createDirectionalCircularOpenings(
+                                    0.0, -1.0,
+                                    0.0, 1.0
+                            );
+
+                    case CENTER_TO_OUTER ->
+                            createCenterToOuterOpenings();
+
+                    default -> throw new IllegalStateException(
+                            "Unexpected circular opening mode: " + mode
+                    );
+                }
+            }
+
+            case HEXAGONAL, TRIANGULAR -> {
+
+                if (mode == EntranceExitMode.LEFT_TO_RIGHT) {
+
+                    createDirectionalPolygonOpenings(
+                            1.0,
+                            0.0
+                    );
+
+                } else if (mode == EntranceExitMode.TOP_TO_BOTTOM) {
+
+                    createDirectionalPolygonOpenings(
+                            0.0,
+                            1.0
+                    );
+
+                } else {
+
+                    throw new IllegalArgumentException(
+                            "Center to Outer Edge is only available for circular mazes."
+                    );
+                }
+            }
+        }
     }
 
 
-    // ============================================================
-    // CIRCULAR OPENINGS
-    // ============================================================
+// ============================================================
+// RECTANGULAR OPENINGS
+// ============================================================
 
-    public void createCircularOpenings() {
+    private void createDirectionalRectangularOpenings(
+            boolean horizontal
+    ) {
 
-        if (!isCircular() || polarRingCount < 1) {
-            return;
+        List<Cell> starts = new ArrayList<>();
+        List<Cell> ends = new ArrayList<>();
+
+        for (Cell cell : allCells) {
+
+            if (horizontal) {
+
+                if (cell.x == 0) {
+                    starts.add(cell);
+                }
+
+                if (cell.x == cols - 1) {
+                    ends.add(cell);
+                }
+
+            } else {
+
+                if (cell.y == 0) {
+                    starts.add(cell);
+                }
+
+                if (cell.y == rows - 1) {
+                    ends.add(cell);
+                }
+            }
         }
 
-        clearEntranceAndExitFlags();
+        Cell[] pair = chooseFarthestPair(
+                starts,
+                ends
+        );
+
+        assignEndpoints(
+                pair[0],
+                pair[1]
+        );
+
+        if (horizontal) {
+
+            // 3 = Left, 1 = Right.
+            entranceCell.walls[3] = false;
+            exitCell.walls[1] = false;
+
+        } else {
+
+            // 0 = Top, 2 = Bottom.
+            entranceCell.walls[0] = false;
+            exitCell.walls[2] = false;
+        }
+    }
+
+
+    /**
+     * Determines which exterior wall to open for a manually selected
+     * rectangular cell.
+     *
+     * Interior cells return -1 because they do not touch the exterior.
+     */
+    private int chooseCustomRectangularWall(
+            Cell cell,
+            Cell other
+    ) {
+
+        List<Integer> boundaryWalls = new ArrayList<>();
+
+        if (cell.y == 0) {
+            boundaryWalls.add(0);
+        }
+
+        if (cell.x == cols - 1) {
+            boundaryWalls.add(1);
+        }
+
+        if (cell.y == rows - 1) {
+            boundaryWalls.add(2);
+        }
+
+        if (cell.x == 0) {
+            boundaryWalls.add(3);
+        }
+
+        if (boundaryWalls.isEmpty()) {
+            return -1;
+        }
+
+        double awayX = cell.getScreenX() - other.getScreenX();
+        double awayY = cell.getScreenY() - other.getScreenY();
+
+        int bestWall = boundaryWalls.get(0);
+        double bestAlignment = Double.NEGATIVE_INFINITY;
+
+        for (int wall : boundaryWalls) {
+
+            double nx = 0.0;
+            double ny = 0.0;
+
+            switch (wall) {
+
+                case 0 -> ny = -1.0;
+                case 1 -> nx = 1.0;
+                case 2 -> ny = 1.0;
+                case 3 -> nx = -1.0;
+
+                default -> throw new IllegalStateException(
+                        "Unexpected rectangular wall index."
+                );
+            }
+
+            double alignment = awayX * nx + awayY * ny;
+
+            if (alignment > bestAlignment) {
+
+                bestAlignment = alignment;
+                bestWall = wall;
+            }
+        }
+
+        return bestWall;
+    }
+
+
+// ============================================================
+// CIRCULAR OPENINGS
+// ============================================================
+
+    private List<Cell> getOuterRingCells() {
 
         List<Cell> outerRing = new ArrayList<>();
 
@@ -1217,106 +1409,496 @@ public class MazeGrid {
             }
         }
 
-        Cell[] pair = chooseFarthestPair(outerRing);
-
-        assignCircularOpenings(pair);
-    }
-
-
-    // ============================================================
-    // HEXAGONAL OPENINGS
-    // ============================================================
-
-    public void createHexagonalOpenings() {
-
-        if (topology != TopologyType.HEXAGONAL) {
-            return;
-        }
-
-        createPolygonOpenings();
-    }
-
-
-    // ============================================================
-    // TRIANGULAR OPENINGS
-    // ============================================================
-
-    public void createTriangularOpenings() {
-
-        if (topology != TopologyType.TRIANGULAR) {
-            return;
-        }
-
-        createPolygonOpenings();
+        return outerRing;
     }
 
 
     /**
-     * Selects the boundary cells with the greatest passage distance,
-     * then opens one actual exterior edge on each selected cell.
+     * Finds outer-ring sectors facing the requested directions.
+     *
+     * A directional score of at least 0.5 means that a sector lies
+     * within 60 degrees of the requested direction.
      */
-    private void createPolygonOpenings() {
+    private List<Cell> getPolarDirectionalCandidates(
+            List<Cell> outerRing,
+            double directionX,
+            double directionY
+    ) {
 
-        clearEntranceAndExitFlags();
+        List<Cell> candidates = new ArrayList<>();
 
-        List<Cell> boundaryCells = new ArrayList<>();
+        double bestScore = Double.NEGATIVE_INFINITY;
 
-        for (Cell cell : allCells) {
+        for (Cell cell : outerRing) {
 
-            if (cell instanceof PolygonCell polygon
-                    && !polygon.getBoundaryEdgeIndices().isEmpty()) {
+            PolarCell polar = (PolarCell) cell;
 
-                boundaryCells.add(cell);
+            double score =
+                    Math.cos(polar.getCenterAngle()) * directionX
+                            + Math.sin(polar.getCenterAngle()) * directionY;
+
+            bestScore = Math.max(bestScore, score);
+
+            if (score >= 0.5) {
+                candidates.add(cell);
             }
         }
 
-        if (boundaryCells.size() < 2) {
+        // Very small or unusual boards may not have a sector inside
+        // the 60-degree selection region. Use the best-facing sectors.
+        if (candidates.isEmpty()) {
+
+            for (Cell cell : outerRing) {
+
+                PolarCell polar = (PolarCell) cell;
+
+                double score =
+                        Math.cos(polar.getCenterAngle()) * directionX
+                                + Math.sin(polar.getCenterAngle()) * directionY;
+
+                if (Math.abs(score - bestScore) < 1.0e-9) {
+                    candidates.add(cell);
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+
+    private void createDirectionalCircularOpenings(
+            double startDirectionX,
+            double startDirectionY,
+            double endDirectionX,
+            double endDirectionY
+    ) {
+
+        List<Cell> outerRing = getOuterRingCells();
+
+        List<Cell> starts = getPolarDirectionalCandidates(
+                outerRing,
+                startDirectionX,
+                startDirectionY
+        );
+
+        List<Cell> ends = getPolarDirectionalCandidates(
+                outerRing,
+                endDirectionX,
+                endDirectionY
+        );
+
+        Cell[] pair = chooseFarthestPair(
+                starts,
+                ends
+        );
+
+        assignEndpoints(
+                pair[0],
+                pair[1]
+        );
+
+        // CircularRenderer automatically opens the outer arc of
+        // cells marked as entrance or exit.
+    }
+
+
+    /**
+     * Special circular mode:
+     *
+     * Entrance = central cell.
+     * Exit = outer-ring cell with the greatest shortest-passage distance
+     * from the center.
+     */
+    private void createCenterToOuterOpenings() {
+
+        Cell core = null;
+
+        for (Cell cell : allCells) {
+
+            if (cell instanceof PolarCell polar && polar.isCore()) {
+
+                core = cell;
+                break;
+            }
+        }
+
+        if (core == null) {
 
             throw new IllegalStateException(
-                    "Polygon maze needs at least two boundary cells."
+                    "Circular maze has no central cell."
             );
         }
 
+        List<Cell> outerRing = getOuterRingCells();
 
-        Cell[] pair = chooseFarthestPair(boundaryCells);
+        Map<Cell, Integer> distances =
+                shortestPassageDistances(core);
 
-        Random random = new Random();
+        int bestDistance = -1;
 
-        PolygonCell first = (PolygonCell) pair[0];
-        PolygonCell second = (PolygonCell) pair[1];
+        List<Cell> bestExits = new ArrayList<>();
 
-        List<Integer> firstEdges =
-                first.getBoundaryEdgeIndices();
+        for (Cell candidate : outerRing) {
 
-        List<Integer> secondEdges =
-                second.getBoundaryEdgeIndices();
+            Integer distance = distances.get(candidate);
 
+            if (distance == null) {
+                continue;
+            }
 
-        // Select an actual exterior polygon side for each opening.
+            if (distance > bestDistance) {
 
-        first.setOpeningEdgeIndex(
-                firstEdges.get(
-                        random.nextInt(firstEdges.size())
-                )
+                bestDistance = distance;
+
+                bestExits.clear();
+                bestExits.add(candidate);
+
+            } else if (distance == bestDistance) {
+
+                bestExits.add(candidate);
+            }
+        }
+
+        if (bestExits.isEmpty()) {
+
+            throw new IllegalStateException(
+                    "No reachable outer-ring exit was found."
+            );
+        }
+
+        Cell selectedExit = bestExits.get(
+                new Random().nextInt(bestExits.size())
         );
 
-        second.setOpeningEdgeIndex(
-                secondEdges.get(
-                        random.nextInt(secondEdges.size())
-                )
+        assignEndpoints(
+                core,
+                selectedExit
+        );
+    }
+
+
+// ============================================================
+// HEXAGONAL / TRIANGULAR OPENINGS
+// ============================================================
+
+    /**
+     * Selects entrance and exit boundary regions using the requested
+     * geometric axis.
+     *
+     * dx = 1, dy = 0 means left-to-right.
+     * dx = 0, dy = 1 means top-to-bottom.
+     *
+     * Actual exterior edge midpoints are used rather than assuming
+     * rectangular x/y cell coordinates.
+     */
+    private void createDirectionalPolygonOpenings(
+            double dx,
+            double dy
+    ) {
+
+        List<BoundaryEdgeCandidate> boundaryEdges =
+                new ArrayList<>();
+
+        for (Cell rawCell : allCells) {
+
+            if (!(rawCell instanceof PolygonCell polygon)) {
+                continue;
+            }
+
+            for (int edge : polygon.getBoundaryEdgeIndices()) {
+
+                int next = (edge + 1) % polygon.getEdgeCount();
+
+                double midpointX = (
+                        polygon.getVertexX(edge)
+                                + polygon.getVertexX(next)
+                ) / 2.0;
+
+                double midpointY = (
+                        polygon.getVertexY(edge)
+                                + polygon.getVertexY(next)
+                ) / 2.0;
+
+                double projection =
+                        midpointX * dx + midpointY * dy;
+
+                boundaryEdges.add(
+                        new BoundaryEdgeCandidate(
+                                polygon,
+                                edge,
+                                projection
+                        )
+                );
+            }
+        }
+
+        if (boundaryEdges.size() < 2) {
+
+            throw new IllegalStateException(
+                    "Polygon maze needs at least two exterior edges."
+            );
+        }
+
+        double minimum = boundaryEdges.stream()
+                .mapToDouble(BoundaryEdgeCandidate::projection)
+                .min()
+                .orElseThrow();
+
+        double maximum = boundaryEdges.stream()
+                .mapToDouble(BoundaryEdgeCandidate::projection)
+                .max()
+                .orElseThrow();
+
+        double tolerance = Math.max(
+                1.0e-8,
+                (maximum - minimum) * 0.25
         );
 
+        Map<Cell, BoundaryEdgeCandidate> startEdges =
+                new LinkedHashMap<>();
 
-        // Randomize entrance and exit roles.
+        Map<Cell, BoundaryEdgeCandidate> endEdges =
+                new LinkedHashMap<>();
 
-        entranceCell = random.nextBoolean()
-                ? first
-                : second;
+        for (BoundaryEdgeCandidate candidate : boundaryEdges) {
 
-        exitCell = entranceCell == first
-                ? second
-                : first;
+            if (candidate.projection() <= minimum + tolerance) {
 
+                startEdges.merge(
+                        candidate.cell(),
+                        candidate,
+                        (a, b) -> a.projection() <= b.projection() ? a : b
+                );
+            }
+
+            if (candidate.projection() >= maximum - tolerance) {
+
+                endEdges.merge(
+                        candidate.cell(),
+                        candidate,
+                        (a, b) -> a.projection() >= b.projection() ? a : b
+                );
+            }
+        }
+
+        Cell[] pair = chooseFarthestPair(
+                new ArrayList<>(startEdges.keySet()),
+                new ArrayList<>(endEdges.keySet())
+        );
+
+        PolygonCell start = (PolygonCell) pair[0];
+        PolygonCell end = (PolygonCell) pair[1];
+
+        start.setOpeningEdgeIndex(
+                startEdges.get(start).edgeIndex()
+        );
+
+        end.setOpeningEdgeIndex(
+                endEdges.get(end).edgeIndex()
+        );
+
+        assignEndpoints(
+                start,
+                end
+        );
+    }
+
+
+    /**
+     * Chooses an exterior edge for a custom polygon selection.
+     *
+     * The edge that faces most directly away from the board center
+     * is used. Interior polygon cells have no boundary edge and
+     * therefore receive no exterior opening.
+     */
+    private int chooseCustomPolygonEdge(
+            PolygonCell cell
+    ) {
+
+        List<Integer> boundaryEdges =
+                cell.getBoundaryEdgeIndices();
+
+        if (boundaryEdges.isEmpty()) {
+            return -1;
+        }
+
+        double boardCenterX = 0.0;
+        double boardCenterY = 0.0;
+
+        for (Cell candidate : allCells) {
+
+            boardCenterX += candidate.getScreenX();
+            boardCenterY += candidate.getScreenY();
+        }
+
+        boardCenterX /= allCells.size();
+        boardCenterY /= allCells.size();
+
+        double outwardX = cell.getScreenX() - boardCenterX;
+        double outwardY = cell.getScreenY() - boardCenterY;
+
+        double magnitude = Math.hypot(outwardX, outwardY);
+
+        if (magnitude < 1.0e-9) {
+            outwardX = 1.0;
+            outwardY = 0.0;
+        } else {
+            outwardX /= magnitude;
+            outwardY /= magnitude;
+        }
+
+        int bestEdge = boundaryEdges.get(0);
+        double bestScore = Double.NEGATIVE_INFINITY;
+
+        for (int edge : boundaryEdges) {
+
+            int next = (edge + 1) % cell.getEdgeCount();
+
+            double midpointX = (
+                    cell.getVertexX(edge)
+                            + cell.getVertexX(next)
+            ) / 2.0;
+
+            double midpointY = (
+                    cell.getVertexY(edge)
+                            + cell.getVertexY(next)
+            ) / 2.0;
+
+            double edgeX = midpointX - cell.getScreenX();
+            double edgeY = midpointY - cell.getScreenY();
+
+            double score = edgeX * outwardX + edgeY * outwardY;
+
+            if (score > bestScore) {
+
+                bestScore = score;
+                bestEdge = edge;
+            }
+        }
+
+        return bestEdge;
+    }
+
+
+// ============================================================
+// CUSTOM CLICK SELECTION
+// ============================================================
+
+    /**
+     * Displays the first custom selection before the exit is chosen.
+     *
+     * This lets the renderer display the START marker immediately.
+     */
+    public void setCustomEntrancePreview(Cell start) {
+
+        if (start == null || !allCells.contains(start)) {
+
+            throw new IllegalArgumentException(
+                    "The selected entrance must belong to this maze."
+            );
+        }
+
+        clearEntranceAndExitFlags();
+
+        entranceCell = start;
+
+        start.isEntrance = true;
+        start.discovered = true;
+    }
+
+
+    /**
+     * Applies two cells selected by the user.
+     *
+     * Interior cells are valid endpoints. An exterior wall is opened
+     * only when the selected cell actually lies on the board boundary.
+     */
+    public void createCustomOpenings(
+            Cell start,
+            Cell end
+    ) {
+
+        if (start == null
+                || end == null
+                || !allCells.contains(start)
+                || !allCells.contains(end)) {
+
+            throw new IllegalArgumentException(
+                    "Both custom endpoints must belong to this maze."
+            );
+        }
+
+        if (start == end) {
+
+            throw new IllegalArgumentException(
+                    "Entrance and exit must be different cells."
+            );
+        }
+
+        clearEntranceAndExitFlags();
+
+        assignEndpoints(
+                start,
+                end
+        );
+
+        switch (topology) {
+
+            case RECTANGULAR -> {
+
+                int startWall = chooseCustomRectangularWall(
+                        start,
+                        end
+                );
+
+                int endWall = chooseCustomRectangularWall(
+                        end,
+                        start
+                );
+
+                if (startWall >= 0) {
+                    start.walls[startWall] = false;
+                }
+
+                if (endWall >= 0) {
+                    end.walls[endWall] = false;
+                }
+            }
+
+            case CIRCULAR -> {
+                // The circular renderer opens the outer arc automatically
+                // for selected entrance/exit cells on the outermost ring.
+                // Interior and core endpoints remain internal positions.
+            }
+
+            case HEXAGONAL, TRIANGULAR -> {
+
+                PolygonCell polygonStart = (PolygonCell) start;
+                PolygonCell polygonEnd = (PolygonCell) end;
+
+                polygonStart.setOpeningEdgeIndex(
+                        chooseCustomPolygonEdge(polygonStart)
+                );
+
+                polygonEnd.setOpeningEdgeIndex(
+                        chooseCustomPolygonEdge(polygonEnd)
+                );
+            }
+        }
+    }
+
+
+// ============================================================
+// SHARED ENDPOINT ASSIGNMENT
+// ============================================================
+
+    private void assignEndpoints(
+            Cell start,
+            Cell end
+    ) {
+
+        entranceCell = start;
+        exitCell = end;
 
         entranceCell.isEntrance = true;
         entranceCell.discovered = true;
@@ -1325,25 +1907,24 @@ public class MazeGrid {
     }
 
 
-    // ============================================================
-    // FARTHEST PAIR SELECTION
-    // ============================================================
+// ============================================================
+// FARTHEST PAIR SELECTION
+// ============================================================
 
     /**
-     * Calculates the exact maximum shortest-path distance between
-     * any two candidate cells.
-     *
-     * This is restricted to the supplied candidates:
-     * outer-ring cells for circular mazes, boundary cells for polygons.
+     * Finds the pair with the greatest shortest-path distance,
+     * where the first cell must come from starts and the second
+     * cell must come from ends.
      */
     private Cell[] chooseFarthestPair(
-            List<Cell> candidates
+            List<Cell> starts,
+            List<Cell> ends
     ) {
 
-        if (candidates.size() < 2) {
+        if (starts.isEmpty() || ends.isEmpty()) {
 
             throw new IllegalStateException(
-                    "At least two opening candidates are required."
+                    "At least one candidate is required on each side."
             );
         }
 
@@ -1351,27 +1932,22 @@ public class MazeGrid {
 
         List<Cell[]> bestPairs = new ArrayList<>();
 
-
-        for (int i = 0; i < candidates.size(); i++) {
-
-            Cell source = candidates.get(i);
+        for (Cell source : starts) {
 
             Map<Cell, Integer> distances =
                     shortestPassageDistances(source);
 
+            for (Cell target : ends) {
 
-            for (int j = i + 1;
-                 j < candidates.size();
-                 j++) {
-
-                Cell target = candidates.get(j);
+                if (source == target) {
+                    continue;
+                }
 
                 Integer distance = distances.get(target);
 
                 if (distance == null) {
                     continue;
                 }
-
 
                 if (distance > bestDistance) {
 
@@ -1392,14 +1968,12 @@ public class MazeGrid {
             }
         }
 
-
         if (bestPairs.isEmpty()) {
 
             throw new IllegalStateException(
-                    "Maze graph is disconnected; cannot select openings."
+                    "Maze graph is disconnected or has no distinct endpoint pair."
             );
         }
-
 
         return bestPairs.get(
                 new Random().nextInt(bestPairs.size())
@@ -1407,27 +1981,8 @@ public class MazeGrid {
     }
 
 
-    private void assignCircularOpenings(Cell[] pair) {
-
-        Random random = new Random();
-
-        entranceCell = random.nextBoolean()
-                ? pair[0]
-                : pair[1];
-
-        exitCell = entranceCell == pair[0]
-                ? pair[1]
-                : pair[0];
-
-        entranceCell.isEntrance = true;
-        entranceCell.discovered = true;
-
-        exitCell.isExit = true;
-    }
-
-
     /**
-     * BFS through OPEN passages only.
+     * Breadth-first search through OPEN passages only.
      */
     private Map<Cell, Integer> shortestPassageDistances(
             Cell start
@@ -1440,17 +1995,13 @@ public class MazeGrid {
                 new ArrayDeque<>();
 
         distances.put(start, 0);
-
         queue.add(start);
-
 
         while (!queue.isEmpty()) {
 
             Cell current = queue.remove();
 
-            int nextDistance =
-                    distances.get(current) + 1;
-
+            int nextDistance = distances.get(current) + 1;
 
             for (Cell neighbor : current.getOpenNeighbors()) {
 
@@ -1470,9 +2021,48 @@ public class MazeGrid {
     }
 
 
-    // ============================================================
-    // RESET OPENINGS
-    // ============================================================
+// ============================================================
+// COMPATIBILITY METHODS
+// ============================================================
+
+    /**
+     * Retained for compatibility with older application code.
+     */
+    public void createRectangularOpenings() {
+
+        if (topology == TopologyType.RECTANGULAR) {
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+        }
+    }
+
+
+    public void createCircularOpenings() {
+
+        if (topology == TopologyType.CIRCULAR) {
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+        }
+    }
+
+
+    public void createHexagonalOpenings() {
+
+        if (topology == TopologyType.HEXAGONAL) {
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+        }
+    }
+
+
+    public void createTriangularOpenings() {
+
+        if (topology == TopologyType.TRIANGULAR) {
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+        }
+    }
+
+
+// ============================================================
+// RESET OPENINGS
+// ============================================================
 
     private void clearEntranceAndExitFlags() {
 
@@ -1490,7 +2080,6 @@ public class MazeGrid {
             }
         }
     }
-
 
     // ============================================================
     // DEAD END STATISTICS

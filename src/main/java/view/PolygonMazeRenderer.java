@@ -657,6 +657,66 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
 
 
         // ========================================================
+// ENTRANCE / EXIT MARKERS
+// ========================================================
+
+        for (Cell cell : grid.getAllCells()) {
+
+            if (!(cell instanceof PolygonCell polygon)) {
+                continue;
+            }
+
+            if (fogOfWarActive && !cell.discovered) {
+                continue;
+            }
+
+            double shortestEdge = Double.POSITIVE_INFINITY;
+
+            for (int edge = 0; edge < polygon.getEdgeCount(); edge++) {
+
+                int next = (edge + 1) % polygon.getEdgeCount();
+
+                double edgeLength = Math.hypot(
+                        polygon.getVertexX(next) - polygon.getVertexX(edge),
+                        polygon.getVertexY(next) - polygon.getVertexY(edge)
+                );
+
+                shortestEdge = Math.min(
+                        shortestEdge,
+                        edgeLength
+                );
+            }
+
+            double markerDiameter = Math.max(
+                    5.0,
+                    Math.min(12.0, shortestEdge * 0.48)
+            );
+
+            if (cell.isEntrance) {
+
+                EndpointMarkerRenderer.draw(
+                        gc,
+                        cell.getScreenX(),
+                        cell.getScreenY(),
+                        markerDiameter,
+                        entranceColor,
+                        "S"
+                );
+
+            } else if (cell.isExit) {
+
+                EndpointMarkerRenderer.draw(
+                        gc,
+                        cell.getScreenX(),
+                        cell.getScreenY(),
+                        markerDiameter,
+                        exitColor,
+                        "E"
+                );
+            }
+        }
+
+        // ========================================================
         // GENERATION HEAD
         // ========================================================
 

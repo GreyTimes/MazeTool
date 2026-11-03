@@ -29,18 +29,23 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+
 import model.Cell;
+import model.EntranceExitMode;
 import model.MazeGrid;
 import model.PolarCell;
 import model.TopologyType;
+
 import view.MazeCanvas;
 import view.RectangularRenderer;
 import view.CircularRenderer;
 import view.HexagonalRenderer;
 import view.TriangularRenderer;
+
 import generator.*;
 import solver.*;
 import game.Player;
+
 import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
@@ -50,6 +55,13 @@ import java.util.List;
 /**
  * JavaFX application for rectangular, circular, hexagonal,
  * and triangular maze generation and solving.
+ *
+ * Supports configurable entrance and exit positions:
+ *
+ * - Left to Right
+ * - Top to Bottom
+ * - Center to Outer Edge (circular only)
+ * - Custom Click Selection
  */
 public class MazeGeneratorApp extends Application {
 
@@ -69,22 +81,47 @@ public class MazeGeneratorApp extends Application {
     // ============================================================
 
     private MazeGrid grid;
+
     private MazeCanvas mazeCanvas;
+
     private Timeline animTimeline;
+
     private Timeline movementTimeline;
+
     private Label statsLabel;
+
     private ComboBox<String> algorithmCombo;
+
     private ComboBox<String> solverCombo;
+
     private ComboBox<TopologyType> shapeCombo;
+
+    private ComboBox<EntranceExitMode> entranceExitModeCombo;
+
     private ToggleButton playModeToggle;
+
     private ToggleButton fogOfWarToggle;
+
     private ToggleButton showSolutionToggle;
+
     private ToggleButton themeToggle;
+
+    private Label openingStatusLabel;
+
     private final Player player = new Player();
+
     private boolean isPlayMode = false;
+
     private boolean isFogOfWar = false;
+
     private boolean isPlayerMoving = false;
+
+    private boolean customSelectionActive = false;
+
+    private Cell customStartCell;
+
     private int fogRadius = 2;
+
 
     // ============================================================
     // APPLICATION START
@@ -92,6 +129,7 @@ public class MazeGeneratorApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+
         primaryStage.setTitle(
                 "Customizable JavaFX Maze Generator & Solver"
         );
@@ -128,6 +166,42 @@ public class MazeGeneratorApp extends Application {
 
 
         // ========================================================
+        // ENTRANCE / EXIT MODE SELECTION
+        // ========================================================
+
+        Label entranceExitHeader = new Label(
+                "Entrance / Exit Mode:"
+        );
+
+        Label entranceExitInfo = createInfoIcon(
+                "Left to Right: start on the left and finish on the right. "
+                        + "Top to Bottom: start at the top and finish at the bottom. "
+                        + "Center to Outer Edge: available for circular mazes. "
+                        + "Custom: click two cells after generation to select START and END."
+        );
+
+        entranceExitModeCombo = new ComboBox<>();
+
+        entranceExitModeCombo.setMaxWidth(
+                Double.MAX_VALUE
+        );
+
+        openingStatusLabel = new Label(
+                "The selected mode will be applied when you generate a maze."
+        );
+
+        openingStatusLabel.setWrapText(true);
+
+        openingStatusLabel.setMaxWidth(
+                Double.MAX_VALUE
+        );
+
+        configureEntranceExitModeOptions(
+                shapeCombo.getValue()
+        );
+
+
+        // ========================================================
         // GENERATION ALGORITHM SELECTION
         // ========================================================
 
@@ -136,9 +210,9 @@ public class MazeGeneratorApp extends Application {
         );
 
         Label algoInfo = createInfoIcon(
-                "DFS creates long winding corridors. Prim's and Kruskal's " +
-                        "produce branched mazes. Aldous-Broder and Wilson's " +
-                        "generate uniform spanning trees."
+                "DFS creates long winding corridors. Prim's and Kruskal's "
+                        + "produce branched mazes. Aldous-Broder and Wilson's "
+                        + "generate uniform spanning trees."
         );
 
         algorithmCombo = new ComboBox<>();
@@ -167,8 +241,8 @@ public class MazeGeneratorApp extends Application {
         );
 
         Label solverInfo = createInfoIcon(
-                "BFS finds the fewest cell transitions. DFS explores " +
-                        "a deep route. Dijkstra minimizes geometric distance."
+                "BFS finds the fewest cell transitions. DFS explores "
+                        + "a deep route. Dijkstra minimizes geometric distance."
         );
 
         solverCombo = new ComboBox<>();
@@ -209,10 +283,10 @@ public class MazeGeneratorApp extends Application {
         playModeToggle.setMaxWidth(Double.MAX_VALUE);
 
         Label playInfo = createInfoIcon(
-                "Rectangular: WASD. Circular: click highlighted passages " +
-                        "or use W/S/A/D for outward/inward/counterclockwise/clockwise. " +
-                        "Hexagonal and triangular: click a highlighted open neighbor; " +
-                        "WASD uses approximate screen directions."
+                "Rectangular: WASD. Circular: click highlighted passages "
+                        + "or use W/S/A/D for outward/inward/counterclockwise/clockwise. "
+                        + "Hexagonal and triangular: click a highlighted open neighbor; "
+                        + "WASD uses approximate screen directions."
         );
 
         HBox playBox = new HBox(
@@ -242,8 +316,8 @@ public class MazeGeneratorApp extends Application {
         fogOfWarToggle.setMaxWidth(Double.MAX_VALUE);
 
         Label fogInfo = createInfoIcon(
-                "Hides undiscovered cells outside the player's " +
-                        "graph-distance visibility radius."
+                "Hides undiscovered cells outside the player's "
+                        + "graph-distance visibility radius."
         );
 
         HBox fogBox = new HBox(
@@ -379,18 +453,23 @@ public class MazeGeneratorApp extends Application {
         // ========================================================
 
         shapeCombo.valueProperty().addListener(
-                (obs, oldTopology, newTopology) ->
+                (obs, oldTopology, newTopology) -> {
 
-                        configureDimensionSliders(
-                                newTopology,
-                                widthSlider,
-                                heightSlider,
-                                widthLabel,
-                                heightLabel,
-                                widthInfo,
-                                heightInfo,
-                                heightHeaderBox
-                        )
+                    configureDimensionSliders(
+                            newTopology,
+                            widthSlider,
+                            heightSlider,
+                            widthLabel,
+                            heightLabel,
+                            widthInfo,
+                            heightInfo,
+                            heightHeaderBox
+                    );
+
+                    configureEntranceExitModeOptions(
+                            newTopology
+                    );
+                }
         );
 
         configureDimensionSliders(
@@ -402,6 +481,10 @@ public class MazeGeneratorApp extends Application {
                 widthInfo,
                 heightInfo,
                 heightHeaderBox
+        );
+
+        configureEntranceExitModeOptions(
+                shapeCombo.getValue()
         );
 
 
@@ -617,7 +700,17 @@ public class MazeGeneratorApp extends Application {
                         "Hide Solution"
                 );
 
-                solveAndDisplayPath();
+                if (customSelectionActive
+                        || grid.getEntranceCell() == null
+                        || grid.getExitCell() == null) {
+
+                    mazeCanvas.setSolvedPath(null);
+                    updateStatistics(-1);
+
+                } else {
+
+                    solveAndDisplayPath();
+                }
 
             } else {
 
@@ -673,10 +766,10 @@ public class MazeGeneratorApp extends Application {
         // ========================================================
 
         statsLabel = new Label(
-                "Statistics:\n" +
-                        "Total Cells: -\n" +
-                        "Dead Ends: -\n" +
-                        "Path Length: -"
+                "Statistics:\n"
+                        + "Total Cells: -\n"
+                        + "Dead Ends: -\n"
+                        + "Path Length: -"
         );
 
         statsLabel.setStyle(
@@ -703,6 +796,10 @@ public class MazeGeneratorApp extends Application {
 
                 new HBox(5, shapeHeader, shapeInfo),
                 shapeCombo,
+
+                new HBox(5, entranceExitHeader, entranceExitInfo),
+                entranceExitModeCombo,
+                openingStatusLabel,
 
                 new HBox(5, algoHeader, algoInfo),
                 algorithmCombo,
@@ -832,7 +929,9 @@ public class MazeGeneratorApp extends Application {
             if (isPlayMode) {
 
                 if (grid == null
-                        || grid.getEntranceCell() == null) {
+                        || grid.getEntranceCell() == null
+                        || grid.getExitCell() == null
+                        || customSelectionActive) {
 
                     playModeToggle.setSelected(false);
 
@@ -845,24 +944,7 @@ public class MazeGeneratorApp extends Application {
                         "Playable Mode: ON"
                 );
 
-                player.spawn(grid);
-
-                player.updateDiscovery(
-                        grid,
-                        isFogOfWar,
-                        fogRadius
-                );
-
-                mazeCanvas.setPlayerCell(
-                        player.getCurrentCell()
-                );
-
-                mazeCanvas.setFogOfWarActive(
-                        isFogOfWar,
-                        fogRadius
-                );
-
-                refreshInteractionHints();
+                spawnPlayerForCurrentMaze();
 
             } else {
 
@@ -913,7 +995,8 @@ public class MazeGeneratorApp extends Application {
                         cell.discovered = false;
                     }
 
-                    if (isPlayMode) {
+                    if (isPlayMode
+                            && player.getCurrentCell() != null) {
 
                         player.updateDiscovery(
                                 grid,
@@ -957,6 +1040,7 @@ public class MazeGeneratorApp extends Application {
         scene.setOnKeyPressed(event -> {
 
             if (!isPlayMode
+                    || customSelectionActive
                     || isPlayerMoving
                     || grid == null
                     || player.getCurrentCell() == null) {
@@ -1009,7 +1093,8 @@ public class MazeGeneratorApp extends Application {
 
         mazeCanvas.setOnMouseMoved(event -> {
 
-            if (!isPlayMode
+            if (customSelectionActive
+                    || !isPlayMode
                     || isPlayerMoving
                     || grid == null
                     || !grid.isGeometric()
@@ -1041,11 +1126,29 @@ public class MazeGeneratorApp extends Application {
 
 
         // ========================================================
-        // GEOMETRIC CLICK-TO-MOVE
+        // MOUSE CLICK HANDLING
         // ========================================================
 
         mazeCanvas.setOnMouseClicked(event -> {
 
+            // Custom selection has priority over normal gameplay.
+            // It works for all four topologies.
+            if (customSelectionActive) {
+
+                if (!isPlayerMoving) {
+
+                    handleCustomSelectionClick(
+                            event.getX(),
+                            event.getY()
+                    );
+                }
+
+                event.consume();
+
+                return;
+            }
+
+            // Normal geometric click-to-move.
             if (!isPlayMode
                     || isPlayerMoving
                     || grid == null
@@ -1078,6 +1181,181 @@ public class MazeGeneratorApp extends Application {
         primaryStage.setScene(scene);
 
         primaryStage.show();
+    }
+
+
+    // ============================================================
+    // ENTRANCE / EXIT MODE OPTIONS
+    // ============================================================
+
+    private void configureEntranceExitModeOptions(
+            TopologyType topology
+    ) {
+
+        EntranceExitMode previous =
+                entranceExitModeCombo.getValue();
+
+        entranceExitModeCombo.getItems().clear();
+
+        entranceExitModeCombo.getItems().addAll(
+                EntranceExitMode.LEFT_TO_RIGHT,
+                EntranceExitMode.TOP_TO_BOTTOM
+        );
+
+        if (topology == TopologyType.CIRCULAR) {
+
+            entranceExitModeCombo.getItems().add(
+                    EntranceExitMode.CENTER_TO_OUTER
+            );
+        }
+
+        entranceExitModeCombo.getItems().add(
+                EntranceExitMode.CUSTOM
+        );
+
+        if (previous != null
+                && entranceExitModeCombo.getItems().contains(previous)) {
+
+            entranceExitModeCombo.setValue(previous);
+
+        } else {
+
+            entranceExitModeCombo.setValue(
+                    EntranceExitMode.LEFT_TO_RIGHT
+            );
+        }
+    }
+
+
+    // ============================================================
+    // CUSTOM ENTRANCE / EXIT SELECTION
+    // ============================================================
+
+    private void handleCustomSelectionClick(
+            double mouseX,
+            double mouseY
+    ) {
+
+        if (!customSelectionActive || grid == null) {
+            return;
+        }
+
+        Cell clickedCell = mazeCanvas.findCellAt(
+                mouseX,
+                mouseY
+        );
+
+        // Ignore clicks outside the actual maze.
+        if (clickedCell == null) {
+            return;
+        }
+
+        // ========================================================
+        // FIRST CLICK: SELECT START
+        // ========================================================
+
+        if (customStartCell == null) {
+
+            customStartCell = clickedCell;
+
+            grid.setCustomEntrancePreview(
+                    customStartCell
+            );
+
+            mazeCanvas.setSolvedPath(null);
+
+            mazeCanvas.draw();
+
+            updateStatistics(-1);
+
+            openingStatusLabel.setText(
+                    "START selected. Click a different cell to set END."
+            );
+
+            return;
+        }
+
+        // ========================================================
+        // SECOND CLICK: SELECT END
+        // ========================================================
+
+        if (clickedCell == customStartCell) {
+
+            openingStatusLabel.setText(
+                    "Choose a different cell for END."
+            );
+
+            return;
+        }
+
+        Cell selectedStart = customStartCell;
+
+        Cell selectedEnd = clickedCell;
+
+        grid.createCustomOpenings(
+                selectedStart,
+                selectedEnd
+        );
+
+        customStartCell = null;
+
+        customSelectionActive = false;
+
+        openingStatusLabel.setText(
+                "Custom START and END configured successfully."
+        );
+
+        mazeCanvas.draw();
+
+        if (showSolutionToggle.isSelected()) {
+
+            solveAndDisplayPath();
+
+        } else {
+
+            updateStatistics(-1);
+        }
+
+        // If Playable Mode was already active, spawn at the
+        // newly selected START cell.
+        if (isPlayMode) {
+
+            spawnPlayerForCurrentMaze();
+        }
+    }
+
+
+    // ============================================================
+    // PLAYER SPAWN
+    // ============================================================
+
+    private void spawnPlayerForCurrentMaze() {
+
+        if (grid == null
+                || grid.getEntranceCell() == null
+                || grid.getExitCell() == null) {
+
+            return;
+        }
+
+        player.spawn(grid);
+
+        player.updateDiscovery(
+                grid,
+                isFogOfWar,
+                fogRadius
+        );
+
+        mazeCanvas.setPlayerCell(
+                player.getCurrentCell()
+        );
+
+        mazeCanvas.setFogOfWarActive(
+                isFogOfWar,
+                fogRadius
+        );
+
+        refreshInteractionHints();
     }
 
 
@@ -1283,19 +1561,23 @@ public class MazeGeneratorApp extends Application {
         return switch (topology) {
 
             case RECTANGULAR ->
+
                     "Number of rectangular columns (10–50).";
 
             case CIRCULAR ->
+
                     "Number of sectors along the outermost polar ring (8–24).";
 
             case HEXAGONAL ->
-                    "Controls the radius of the regular hexagonal board (2–7). " +
-                            "The outer boundary is a regular hexagon.";
+
+                    "Controls the radius of the regular hexagonal board (2–7). "
+                            + "The outer boundary is a regular hexagon.";
 
             case TRIANGULAR ->
-                    "Controls the number of small equilateral triangle edges " +
-                            "along each side of the large triangular board (4–16). " +
-                            "Total cells = N squared.";
+
+                    "Controls the number of small equilateral triangle edges "
+                            + "along each side of the large triangular board (4–16). "
+                            + "Total cells = N squared.";
         };
     }
 
@@ -1305,15 +1587,19 @@ public class MazeGeneratorApp extends Application {
         return switch (topology) {
 
             case RECTANGULAR ->
+
                     "Number of rectangular rows (10–50).";
 
             case CIRCULAR ->
+
                     "Number of concentric rings outside the center (4–12).";
 
             case HEXAGONAL ->
+
                     "Hexagonal board dimensions are controlled by its radius.";
 
             case TRIANGULAR ->
+
                     "Triangular board dimensions are controlled by its side length.";
         };
     }
@@ -1356,10 +1642,10 @@ public class MazeGeneratorApp extends Application {
         Label infoLabel = new Label("ℹ");
 
         infoLabel.setStyle(
-                "-fx-text-fill: #00bcd4; " +
-                        "-fx-font-weight: bold; " +
-                        "-fx-cursor: hand; " +
-                        "-fx-padding: 0 0 0 4;"
+                "-fx-text-fill: #00bcd4; "
+                        + "-fx-font-weight: bold; "
+                        + "-fx-cursor: hand; "
+                        + "-fx-padding: 0 0 0 4;"
         );
 
         Tooltip tooltip = new Tooltip(tooltipText);
@@ -1397,9 +1683,20 @@ public class MazeGeneratorApp extends Application {
 
         stopMovementAnimation();
 
+        customSelectionActive = false;
+
+        customStartCell = null;
+
+        openingStatusLabel.setText(
+                "Generating maze..."
+        );
+
 
         TopologyType topology =
                 shapeCombo.getValue();
+
+        EntranceExitMode openingMode =
+                entranceExitModeCombo.getValue();
 
 
         // ========================================================
@@ -1640,6 +1937,8 @@ public class MazeGeneratorApp extends Application {
 
                         animTimeline.stop();
 
+                        entranceExitModeCombo.setDisable(false);
+
 
                         // Apply complexity before choosing openings.
 
@@ -1652,38 +1951,54 @@ public class MazeGeneratorApp extends Application {
                         // CREATE ENTRANCE AND EXIT
                         // =================================================
 
-                        switch (topology) {
+                        if (openingMode == EntranceExitMode.CUSTOM) {
 
-                            case RECTANGULAR ->
+                            grid.createOpenings(
+                                    EntranceExitMode.CUSTOM
+                            );
 
-                                    grid.createRectangularOpenings();
+                            customSelectionActive = true;
 
-                            case CIRCULAR ->
+                            customStartCell = null;
 
-                                    grid.createCircularOpenings();
+                            openingStatusLabel.setText(
+                                    "Custom selection: click a cell to set START. "
+                                            + "Then click another cell to set END."
+                            );
 
-                            case HEXAGONAL ->
+                        } else {
 
-                                    grid.createHexagonalOpenings();
+                            customSelectionActive = false;
 
-                            case TRIANGULAR ->
+                            customStartCell = null;
 
-                                    grid.createTriangularOpenings();
+                            grid.createOpenings(
+                                    openingMode
+                            );
+
+                            openingStatusLabel.setText(
+                                    "Entrance and exit configured: "
+                                            + openingMode
+                            );
                         }
 
-
                         mazeCanvas.setCurrentHead(null);
+
+                        mazeCanvas.draw();
 
 
                         // =================================================
                         // SOLUTION
                         // =================================================
 
-                        if (showSolutionToggle.isSelected()) {
+                        if (showSolutionToggle.isSelected()
+                                && !customSelectionActive) {
 
                             solveAndDisplayPath();
 
                         } else {
+
+                            mazeCanvas.setSolvedPath(null);
 
                             updateStatistics(-1);
                         }
@@ -1693,26 +2008,11 @@ public class MazeGeneratorApp extends Application {
                         // SPAWN PLAYER
                         // =================================================
 
-                        if (isPlayMode) {
+                        if (isPlayMode
+                                && grid.getEntranceCell() != null
+                                && grid.getExitCell() != null) {
 
-                            player.spawn(grid);
-
-                            player.updateDiscovery(
-                                    grid,
-                                    isFogOfWar,
-                                    fogRadius
-                            );
-
-                            mazeCanvas.setPlayerCell(
-                                    player.getCurrentCell()
-                            );
-
-                            mazeCanvas.setFogOfWarActive(
-                                    isFogOfWar,
-                                    fogRadius
-                            );
-
-                            refreshInteractionHints();
+                            spawnPlayerForCurrentMaze();
                         }
                     }
                 }
@@ -1724,6 +2024,8 @@ public class MazeGeneratorApp extends Application {
         animTimeline.setCycleCount(
                 Timeline.INDEFINITE
         );
+
+        entranceExitModeCombo.setDisable(true);
 
         animTimeline.play();
     }
@@ -2178,6 +2480,7 @@ public class MazeGeneratorApp extends Application {
                         from.getScreenX()
                 );
 
+
         DoubleProperty animatedY =
                 new SimpleDoubleProperty(
                         from.getScreenY()
@@ -2331,9 +2634,9 @@ public class MazeGeneratorApp extends Application {
         );
 
         alert.setContentText(
-                "Congratulations! You successfully navigated " +
-                        "through the maze.\n\n" +
-                        "Total Steps: " + completedSteps
+                "Congratulations! You successfully navigated "
+                        + "through the maze.\n\n"
+                        + "Total Steps: " + completedSteps
         );
 
         alert.setResizable(false);
@@ -2437,7 +2740,10 @@ public class MazeGeneratorApp extends Application {
 
     private void solveAndDisplayPath() {
 
-        if (grid == null) {
+        if (grid == null
+                || grid.getEntranceCell() == null
+                || grid.getExitCell() == null) {
+
             return;
         }
 
@@ -2501,10 +2807,10 @@ public class MazeGeneratorApp extends Application {
 
         statsLabel.setText(
                 String.format(
-                        "Statistics:\n" +
-                                "Total Cells: %d\n" +
-                                "Dead Ends: %d\n" +
-                                "Path Length: %s",
+                        "Statistics:\n"
+                                + "Total Cells: %d\n"
+                                + "Dead Ends: %d\n"
+                                + "Path Length: %s",
 
                         totalCells,
                         deadEnds,
