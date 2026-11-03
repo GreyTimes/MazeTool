@@ -24,9 +24,6 @@ public interface MazeRenderer {
 
     void setDarkMode(boolean darkMode);
 
-
-    // Optional topology-specific interaction hooks.
-
     default void setHighlightedCells(Collection<Cell> cells) {
     }
 
@@ -38,9 +35,6 @@ public interface MazeRenderer {
 
     default void clearPlayerScreenPosition() {
     }
-
-
-    // Mouse hit testing.
 
     default Cell findCellAt(
             double x,

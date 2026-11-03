@@ -28,49 +28,29 @@ public final class HexagonalCell extends PolygonCell {
     }
 
     /** Creates a full or clipped hexagonal cell. */
-    public HexagonalCell(
-            int axialQ,
-            int axialR,
-            double[] verticesX,
-            double[] verticesY
-    ) {
+    public HexagonalCell(int axialQ, int axialR, double[] verticesX, double[] verticesY) {
         super(axialQ, axialR, verticesX, verticesY);
-
         this.axialQ = axialQ;
         this.axialR = axialR;
     }
 
-    private static double[] createX(
-            double centerX,
-            double radius
-    ) {
+    private static double[] createX(double centerX, double radius) {
         double[] values = new double[6];
 
         for (int i = 0; i < 6; i++) {
-            double angle = -Math.PI / 2.0
-                    + i * Math.PI / 3.0;
-
-            values[i] = centerX
-                    + radius * Math.cos(angle);
+            double angle = -Math.PI / 2.0 + i * Math.PI / 3.0;
+            values[i] = centerX + radius * Math.cos(angle);
         }
-
         return values;
     }
 
-    private static double[] createY(
-            double centerY,
-            double radius
-    ) {
+    private static double[] createY(double centerY, double radius) {
         double[] values = new double[6];
 
         for (int i = 0; i < 6; i++) {
-            double angle = -Math.PI / 2.0
-                    + i * Math.PI / 3.0;
-
-            values[i] = centerY
-                    + radius * Math.sin(angle);
+            double angle = -Math.PI / 2.0 + i * Math.PI / 3.0;
+            values[i] = centerY + radius * Math.sin(angle);
         }
-
         return values;
     }
 

@@ -9,10 +9,8 @@ import java.util.Random;
 /** Aldous-Broder uniform spanning-tree generator using a graph random walk. */
 public class AldousBroderMazeGenerator implements MazeGenerator {
     private MazeGrid grid;
-
     private Cell current;
     private int unvisitedCount;
-
     private final Random random = new Random();
 
     @Override
@@ -22,19 +20,13 @@ public class AldousBroderMazeGenerator implements MazeGenerator {
         }
 
         this.grid = grid;
-
         for (Cell cell : grid.getAllCells()) {
             cell.visited = false;
         }
 
         this.unvisitedCount = grid.getCellCount();
-
-        this.current = grid.getAllCells().get(
-                random.nextInt(grid.getCellCount())
-        );
-
+        this.current = grid.getAllCells().get(random.nextInt(grid.getCellCount()));
         current.visited = true;
-
         unvisitedCount--;
     }
 
@@ -45,28 +37,19 @@ public class AldousBroderMazeGenerator implements MazeGenerator {
         }
 
         List<Cell> neighbors = current.getAdjacentCells();
-
         if (neighbors.isEmpty()) {
-            throw new IllegalStateException(
-                    "The maze graph contains an isolated cell."
-            );
+            throw new IllegalStateException("The maze graph contains an isolated cell.");
         }
 
-        Cell next = neighbors.get(
-                random.nextInt(neighbors.size())
-        );
+        Cell next = neighbors.get(random.nextInt(neighbors.size()));
 
         if (!next.visited) {
-
             grid.removeWalls(current, next);
-
             next.visited = true;
-
             unvisitedCount--;
         }
 
         current = next;
-
         return unvisitedCount > 0;
     }
 

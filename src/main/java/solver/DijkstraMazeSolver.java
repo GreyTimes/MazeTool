@@ -40,55 +40,34 @@ public final class DijkstraMazeSolver {
         Map<Cell, Double> distances = new HashMap<>();
         Map<Cell, Cell> parent = new HashMap<>();
 
-        PriorityQueue<QueueNode> queue = new PriorityQueue<>(
-                Comparator.comparingDouble(node -> node.distance)
-        );
-
+        PriorityQueue<QueueNode> queue = new PriorityQueue<>(Comparator.comparingDouble(node -> node.distance));
         for (Cell cell : grid.getAllCells()) {
             distances.put(cell, Double.POSITIVE_INFINITY);
         }
 
         distances.put(start, 0.0);
-
         queue.add(new QueueNode(start, 0.0));
 
         while (!queue.isEmpty()) {
-
             QueueNode node = queue.poll();
-
             Cell current = node.cell;
-
             if (node.distance > distances.get(current)) {
                 continue;
             }
-
             if (current == target) {
                 break;
             }
-
-            for (Map.Entry<Cell, Boolean> edge
-                    : current.getNeighbors().entrySet()) {
-
+            for (Map.Entry<Cell, Boolean> edge : current.getNeighbors().entrySet()) {
                 if (!Boolean.TRUE.equals(edge.getValue())) {
                     continue;
                 }
 
                 Cell neighbor = edge.getKey();
-
                 double stepCost = centerDistance(current, neighbor);
-
-                double candidate =
-                        distances.get(current) + stepCost;
-
-                if (candidate < distances.getOrDefault(
-                        neighbor,
-                        Double.POSITIVE_INFINITY
-                )) {
-
+                double candidate = distances.get(current) + stepCost;
+                if (candidate < distances.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
                     distances.put(neighbor, candidate);
-
                     parent.put(neighbor, current);
-
                     queue.add(new QueueNode(neighbor, candidate));
                 }
             }
@@ -100,26 +79,17 @@ public final class DijkstraMazeSolver {
 
         List<Cell> path = new ArrayList<>();
 
-        for (Cell current = target;
-             current != null;
-             current = parent.get(current)) {
-
+        for (Cell current = target; current != null; current = parent.get(current)) {
             path.add(current);
         }
 
         Collections.reverse(path);
-
         return path;
     }
 
     private static double centerDistance(Cell a, Cell b) {
+        double distance = Math.hypot(a.getScreenX() - b.getScreenX(), a.getScreenY() - b.getScreenY());
 
-        double distance = Math.hypot(
-                a.getScreenX() - b.getScreenX(),
-                a.getScreenY() - b.getScreenY()
-        );
-
-        // A fallback keeps direct solver use safe before a canvas layout pass.
         return distance > 1.0e-9 ? distance : 1.0;
     }
 }

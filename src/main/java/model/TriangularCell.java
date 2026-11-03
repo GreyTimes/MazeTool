@@ -7,7 +7,6 @@ public final class TriangularCell extends PolygonCell {
 
     private final int column;
     private final int row;
-
     private final boolean firstOrientation;
 
     public TriangularCell(

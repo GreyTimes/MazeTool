@@ -72,9 +72,7 @@ public final class PolarCell extends Cell {
         return isCore() ? 0.0 : (innerRadius + outerRadius) / 2.0;
     }
 
-    public double getCenterAngle() {
-        return (startAngle + endAngle) / 2.0;
-    }
+    public double getCenterAngle() {return (startAngle + endAngle) / 2.0;}
 
     public boolean isCore() {
         return ringIndex == 0;

@@ -34,45 +34,30 @@ public final class BfsMazeSolver {
         visited.add(start);
 
         while (!queue.isEmpty()) {
-
             Cell current = queue.remove();
-
             if (current == target) {
                 return reconstructPath(parent, target);
             }
 
-            for (Map.Entry<Cell, Boolean> edge
-                    : current.getNeighbors().entrySet()) {
-
+            for (Map.Entry<Cell, Boolean> edge : current.getNeighbors().entrySet()) {
                 Cell neighbor = edge.getKey();
-
-                if (Boolean.TRUE.equals(edge.getValue())
-                        && visited.add(neighbor)) {
-
+                if (Boolean.TRUE.equals(edge.getValue()) && visited.add(neighbor)) {
                     parent.put(neighbor, current);
                     queue.add(neighbor);
                 }
             }
         }
-
         return null;
     }
 
-    static List<Cell> reconstructPath(
-            Map<Cell, Cell> parent,
-            Cell target
-    ) {
+    static List<Cell> reconstructPath(Map<Cell, Cell> parent, Cell target) {
         List<Cell> path = new ArrayList<>();
-
         Cell current = target;
-
         while (current != null) {
             path.add(current);
             current = parent.get(current);
         }
-
         Collections.reverse(path);
-
         return path;
     }
 }

@@ -30,10 +30,8 @@ public class DfsMazeGenerator implements MazeGenerator {
         }
 
         Cell startCell = grid.getAllCells().get(0);
-
         startCell.visited = true;
         stack.push(startCell);
-
         currentHead = startCell;
     }
 
@@ -46,7 +44,6 @@ public class DfsMazeGenerator implements MazeGenerator {
 
         Cell current = stack.peek();
         currentHead = current;
-
         List<Cell> unvisitedNeighbors = new ArrayList<>();
 
         for (Cell neighbor : current.getAdjacentCells()) {
@@ -56,20 +53,13 @@ public class DfsMazeGenerator implements MazeGenerator {
         }
 
         if (!unvisitedNeighbors.isEmpty()) {
-
-            Cell next = unvisitedNeighbors.get(
-                    random.nextInt(unvisitedNeighbors.size())
-            );
-
+            Cell next = unvisitedNeighbors.get(random.nextInt(unvisitedNeighbors.size()));
             grid.removeWalls(current, next);
             next.visited = true;
-
             stack.push(next);
-
         } else {
             stack.pop();
         }
-
         return !stack.isEmpty();
     }
 

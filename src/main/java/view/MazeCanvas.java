@@ -1,4 +1,3 @@
-
 package view;
 
 import javafx.scene.canvas.Canvas;
@@ -16,197 +15,107 @@ import java.util.List;
  * Canvas facade shared by rectangular, polar and polygonal renderers.
  */
 public class MazeCanvas extends Canvas {
-
     private MazeGrid grid;
-
     private List<Cell> solvedPath;
-
     private Cell currentHead;
-
     private Cell playerCell;
-
     private boolean fogOfWarActive;
-
     private int fogRadius = 2;
-
     private boolean darkMode = true;
-
-    private List<Cell> highlightedCells =
-            Collections.emptyList();
-
+    private List<Cell> highlightedCells = Collections.emptyList();
     private Cell hoveredCell;
-
-    private MazeRenderer renderer =
-            new RectangularRenderer();
-
+    private MazeRenderer renderer = new RectangularRenderer();
 
     public MazeCanvas(double width, double height) {
-
         super(width, height);
-
         draw();
     }
-
 
     public void setRenderer(MazeRenderer renderer) {
-
         if (renderer == null) {
-
-            throw new IllegalArgumentException(
-                    "Renderer cannot be null."
-            );
+            throw new IllegalArgumentException("Renderer cannot be null.");
         }
-
         this.renderer = renderer;
-
         renderer.setDarkMode(darkMode);
-
         renderer.setHighlightedCells(highlightedCells);
-
         renderer.setHoveredCell(hoveredCell);
-
         renderer.clearPlayerScreenPosition();
     }
-
 
     public void setGrid(MazeGrid grid) {
-
         this.grid = grid;
-
         highlightedCells = Collections.emptyList();
-
         hoveredCell = null;
-
         renderer.setHighlightedCells(highlightedCells);
-
         renderer.setHoveredCell(null);
-
         renderer.clearPlayerScreenPosition();
-
         draw();
     }
-
 
     public MazeGrid getGrid() {
         return grid;
     }
 
-
     public void setSolvedPath(List<Cell> solvedPath) {
-
         this.solvedPath = solvedPath;
-
         draw();
     }
-
 
     public void setCurrentHead(Cell currentHead) {
-
         this.currentHead = currentHead;
-
         draw();
     }
-
 
     public void setPlayerCell(Cell playerCell) {
-
         this.playerCell = playerCell;
-
         draw();
     }
 
-
-    public void setFogOfWarActive(
-            boolean active,
-            int radius
-    ) {
-
+    public void setFogOfWarActive(boolean active, int radius) {
         this.fogOfWarActive = active;
-
         this.fogRadius = radius;
-
         draw();
     }
-
 
     public void setDarkMode(boolean darkMode) {
-
         this.darkMode = darkMode;
-
         renderer.setDarkMode(darkMode);
-
         draw();
     }
 
-
-    // ============================================================
     // INTERACTION
-    // ============================================================
 
-    public void setHighlightedCells(
-            Collection<Cell> cells
-    ) {
-
-        highlightedCells = cells == null
-                ? Collections.emptyList()
-                : new ArrayList<>(cells);
-
+    public void setHighlightedCells(Collection<Cell> cells) {
+        highlightedCells = cells == null ? Collections.emptyList() : new ArrayList<>(cells);
         renderer.setHighlightedCells(highlightedCells);
-
         draw();
     }
-
 
     public void setHoveredCell(Cell cell) {
-
         hoveredCell = cell;
-
         renderer.setHoveredCell(cell);
-
         draw();
     }
 
-
-    public void setPlayerScreenPosition(
-            double x,
-            double y
-    ) {
-
+    public void setPlayerScreenPosition(double x, double y) {
         renderer.setPlayerScreenPosition(x, y);
-
         draw();
     }
-
 
     public void clearPlayerScreenPosition() {
-
         renderer.clearPlayerScreenPosition();
-
         draw();
     }
 
 
     public Cell findCellAt(double x, double y) {
-
-        return renderer.findCellAt(
-                x,
-                y,
-                getWidth(),
-                getHeight(),
-                grid
-        );
+        return renderer.findCellAt(x, y, getWidth(), getHeight(), grid);
     }
 
-
-    // ============================================================
     // DRAW
-    // ============================================================
 
     public void draw() {
-
-        GraphicsContext gc =
-                getGraphicsContext2D();
-
+        GraphicsContext gc = getGraphicsContext2D();
         renderer.render(
                 gc,
                 getWidth(),

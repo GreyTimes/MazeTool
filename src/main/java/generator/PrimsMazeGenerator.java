@@ -28,14 +28,9 @@ public class PrimsMazeGenerator implements MazeGenerator {
             cell.visited = false;
         }
 
-        Cell start = grid.getAllCells().get(
-                random.nextInt(grid.getCellCount())
-        );
-
+        Cell start = grid.getAllCells().get(random.nextInt(grid.getCellCount()));
         start.visited = true;
-
         addFrontierCells(start);
-
         currentHead = start;
     }
 
@@ -46,12 +41,8 @@ public class PrimsMazeGenerator implements MazeGenerator {
             return false;
         }
 
-        Cell current = frontier.remove(
-                random.nextInt(frontier.size())
-        );
-
+        Cell current = frontier.remove(random.nextInt(frontier.size()));
         currentHead = current;
-
         List<Cell> visitedNeighbors = new ArrayList<>();
 
         for (Cell neighbor : current.getAdjacentCells()) {
@@ -61,15 +52,9 @@ public class PrimsMazeGenerator implements MazeGenerator {
         }
 
         if (!visitedNeighbors.isEmpty()) {
-
-            Cell connection = visitedNeighbors.get(
-                    random.nextInt(visitedNeighbors.size())
-            );
-
+            Cell connection = visitedNeighbors.get(random.nextInt(visitedNeighbors.size()));
             grid.removeWalls(current, connection);
-
             current.visited = true;
-
             addFrontierCells(current);
         }
 

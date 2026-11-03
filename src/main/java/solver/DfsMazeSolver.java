@@ -34,39 +34,23 @@ public final class DfsMazeSolver {
         visited.add(start);
 
         while (!stack.isEmpty()) {
-
             Cell current = stack.pop();
-
             if (current == target) {
-
                 List<Cell> path = new ArrayList<>();
-
-                for (Cell cell = target;
-                     cell != null;
-                     cell = parent.get(cell)) {
-
+                for (Cell cell = target; cell != null; cell = parent.get(cell)) {
                     path.add(cell);
                 }
-
                 Collections.reverse(path);
-
                 return path;
             }
-
-            for (Map.Entry<Cell, Boolean> edge
-                    : current.getNeighbors().entrySet()) {
-
+            for (Map.Entry<Cell, Boolean> edge : current.getNeighbors().entrySet()) {
                 Cell neighbor = edge.getKey();
-
-                if (Boolean.TRUE.equals(edge.getValue())
-                        && visited.add(neighbor)) {
-
+                if (Boolean.TRUE.equals(edge.getValue()) && visited.add(neighbor)) {
                     parent.put(neighbor, current);
                     stack.push(neighbor);
                 }
             }
         }
-
         return null;
     }
 }
