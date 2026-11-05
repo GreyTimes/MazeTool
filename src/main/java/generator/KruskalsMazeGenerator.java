@@ -25,6 +25,7 @@ public class KruskalsMazeGenerator implements MazeGenerator {
     private int acceptedEdges;
     private int requiredEdges;
     private Cell currentHead;
+    private Random random;
 
     private static final class Edge {
         private final Cell a;
@@ -51,6 +52,7 @@ public class KruskalsMazeGenerator implements MazeGenerator {
         this.edgeIndex = 0;
         this.acceptedEdges = 0;
         this.requiredEdges = size - 1;
+        this.random = random != null ? random : new Random();
 
         for (int i = 0; i < size; i++) {
             Cell cell = allCells.get(i);
@@ -76,7 +78,7 @@ public class KruskalsMazeGenerator implements MazeGenerator {
             }
         }
 
-        Collections.shuffle(edges, new Random());
+        Collections.shuffle(edges, this.random);
         currentHead = null;
     }
 

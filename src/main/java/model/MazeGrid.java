@@ -555,7 +555,7 @@ public class MazeGrid {
      * CUSTOM deliberately creates no automatic openings. The application
      * will wait for the user to click the entrance and exit cells.
      */
-    public void createOpenings(EntranceExitMode mode) {
+    public void createOpenings(EntranceExitMode mode, Random random) {
         if (mode == null) {
             mode = EntranceExitMode.LEFT_TO_RIGHT;
         }
@@ -563,30 +563,30 @@ public class MazeGrid {
         if (mode == EntranceExitMode.CUSTOM) {
             return;
         }
+        Random rng = random != null ? random : new Random();
         switch (topology) {
             case RECTANGULAR -> {
                 if (mode == EntranceExitMode.LEFT_TO_RIGHT) {
-                    createDirectionalRectangularOpenings(true);
+                    createDirectionalRectangularOpenings(true, rng);
                 } else if (mode == EntranceExitMode.TOP_TO_BOTTOM) {
-                    createDirectionalRectangularOpenings(false);
+                    createDirectionalRectangularOpenings(false, rng);
                 } else {
                     throw new IllegalArgumentException("Center to Outer Edge is only available for circular mazes.");
                 }
             }
             case CIRCULAR -> {
                 switch (mode) {
-                    case LEFT_TO_RIGHT -> createDirectionalCircularOpenings(-1.0, 0.0, 1.0, 0.0);
-                    case TOP_TO_BOTTOM -> createDirectionalCircularOpenings(0.0, -1.0, 0.0, 1.0);
-                    case CENTER_TO_OUTER -> createCenterToOuterOpenings();
+                    case LEFT_TO_RIGHT -> createDirectionalCircularOpenings(-1.0, 0.0, 1.0, 0.0, rng);
+                    case TOP_TO_BOTTOM -> createDirectionalCircularOpenings(0.0, -1.0, 0.0, 1.0, rng);
+                    case CENTER_TO_OUTER -> createCenterToOuterOpenings(rng);
                     default -> throw new IllegalStateException("Unexpected circular opening mode: " + mode);
                 }
             }
-
             case HEXAGONAL, TRIANGULAR -> {
                 if (mode == EntranceExitMode.LEFT_TO_RIGHT) {
-                    createDirectionalPolygonOpenings(1.0, 0.0);
+                    createDirectionalPolygonOpenings(1.0, 0.0, rng);
                 } else if (mode == EntranceExitMode.TOP_TO_BOTTOM) {
-                    createDirectionalPolygonOpenings(0.0, 1.0);
+                    createDirectionalPolygonOpenings(0.0, 1.0, rng);
                 } else {
                     throw new IllegalArgumentException("Center to Outer Edge is only available for circular mazes.");
                 }
@@ -596,7 +596,7 @@ public class MazeGrid {
 
     // RECTANGULAR OPENINGS
 
-    private void createDirectionalRectangularOpenings(boolean horizontal) {
+    private void createDirectionalRectangularOpenings(boolean horizontal, Random rng) {
         List<Cell> starts = new ArrayList<>();
         List<Cell> ends = new ArrayList<>();
         for (Cell cell : allCells) {
@@ -616,7 +616,7 @@ public class MazeGrid {
                 }
             }
         }
-        Cell[] pair = chooseFarthestPair(starts, ends);
+        Cell[] pair = chooseFarthestPair(starts, ends, rng);
         assignEndpoints(pair[0], pair[1]);
         if (horizontal) {
             // 3 = Left, 1 = Right.
@@ -717,11 +717,11 @@ public class MazeGrid {
         return candidates;
     }
 
-    private void createDirectionalCircularOpenings(double startDirectionX, double startDirectionY, double endDirectionX, double endDirectionY) {
+    private void createDirectionalCircularOpenings(double startDirectionX, double startDirectionY, double endDirectionX, double endDirectionY, Random rng) {
         List<Cell> outerRing = getOuterRingCells();
         List<Cell> starts = getPolarDirectionalCandidates(outerRing, startDirectionX, startDirectionY);
         List<Cell> ends = getPolarDirectionalCandidates(outerRing, endDirectionX, endDirectionY);
-        Cell[] pair = chooseFarthestPair(starts, ends);
+        Cell[] pair = chooseFarthestPair(starts, ends, rng);
         assignEndpoints(pair[0], pair[1]);
     }
 
@@ -731,7 +731,7 @@ public class MazeGrid {
      * Exit = outer-ring cell with the greatest shortest-passage distance
      * from the center.
      */
-    private void createCenterToOuterOpenings() {
+    private void createCenterToOuterOpenings(Random random) {
         Cell core = null;
         for (Cell cell : allCells) {
             if (cell instanceof PolarCell polar && polar.isCore()) {
@@ -762,7 +762,8 @@ public class MazeGrid {
         if (bestExits.isEmpty()) {
             throw new IllegalStateException("No reachable outer-ring exit was found.");
         }
-        Cell selectedExit = bestExits.get(new Random().nextInt(bestExits.size()));
+        Random rng = random != null ? random : new Random();
+        Cell selectedExit = bestExits.get(rng.nextInt(bestExits.size()));
         assignEndpoints(core, selectedExit);
     }
 
@@ -776,7 +777,7 @@ public class MazeGrid {
      * Actual exterior edge midpoints are used rather than assuming
      * rectangular x/y cell coordinates.
      */
-    private void createDirectionalPolygonOpenings(double dx, double dy) {
+    private void createDirectionalPolygonOpenings(double dx, double dy, Random rng) {
         List<BoundaryEdgeCandidate> boundaryEdges = new ArrayList<>();
         for (Cell rawCell : allCells) {
             if (!(rawCell instanceof PolygonCell polygon)) {
@@ -819,7 +820,7 @@ public class MazeGrid {
             }
         }
 
-        Cell[] pair = chooseFarthestPair(new ArrayList<>(startEdges.keySet()), new ArrayList<>(endEdges.keySet()));
+        Cell[] pair = chooseFarthestPair(new ArrayList<>(startEdges.keySet()), new ArrayList<>(endEdges.keySet()), rng);
         PolygonCell start = (PolygonCell) pair[0];
         PolygonCell end = (PolygonCell) pair[1];
         start.setOpeningEdgeIndex(startEdges.get(start).edgeIndex());
@@ -952,7 +953,7 @@ public class MazeGrid {
      * where the first cell must come from starts and the second
      * cell must come from ends.
      */
-    private Cell[] chooseFarthestPair(List<Cell> starts, List<Cell> ends) {
+    private Cell[] chooseFarthestPair(List<Cell> starts, List<Cell> ends, Random random) {
         if (starts.isEmpty() || ends.isEmpty()) {
             throw new IllegalStateException("At least one candidate is required on each side.");
         }
@@ -980,7 +981,8 @@ public class MazeGrid {
         if (bestPairs.isEmpty()) {
             throw new IllegalStateException("Maze graph is disconnected or has no distinct endpoint pair.");
         }
-        return bestPairs.get(new Random().nextInt(bestPairs.size()));
+        Random rng = random != null ? random : new Random();
+        return bestPairs.get(rng.nextInt(bestPairs.size()));
     }
 
     /**
@@ -1012,28 +1014,28 @@ public class MazeGrid {
      */
     public void createRectangularOpenings() {
         if (topology == TopologyType.RECTANGULAR) {
-            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT, new Random());
         }
     }
 
 
     public void createCircularOpenings() {
         if (topology == TopologyType.CIRCULAR) {
-            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT, new Random());
         }
     }
 
 
     public void createHexagonalOpenings() {
         if (topology == TopologyType.HEXAGONAL) {
-            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT, new Random());
         }
     }
 
 
     public void createTriangularOpenings() {
         if (topology == TopologyType.TRIANGULAR) {
-            createOpenings(EntranceExitMode.LEFT_TO_RIGHT);
+            createOpenings(EntranceExitMode.LEFT_TO_RIGHT, new Random());
         }
     }
 
@@ -1065,12 +1067,12 @@ public class MazeGrid {
 
     // COMPLEXITY / LOOP CARVING
 
-    public void applyComplexityFactor(double complexityFactor) {
+    public void applyComplexityFactor(double complexityFactor, Random random) {
         double clamped = Math.max(0.0, Math.min(1.0, complexityFactor));
         double removalChance = 1.0 - clamped;
-        Random random = new Random();
+        Random rng = random != null ? random : new Random();
         for (Cell cell : allCells) {
-            if (cell.getOpenDegree() != 1 || random.nextDouble() >= removalChance) {
+            if (cell.getOpenDegree() != 1 || rng.nextDouble() >= removalChance) {
                 continue;
             }
             List<Cell> closedNeighbors = new ArrayList<>();
@@ -1081,7 +1083,7 @@ public class MazeGrid {
             }
 
             if (!closedNeighbors.isEmpty()) {
-                removeWalls(cell, closedNeighbors.get(random.nextInt(closedNeighbors.size())));
+                removeWalls(cell, closedNeighbors.get(rng.nextInt(closedNeighbors.size())));
             }
         }
     }

@@ -17,7 +17,7 @@ public class WilsonsMazeGenerator implements MazeGenerator {
     private MazeGrid grid;
     private final List<Cell> unvisited = new ArrayList<>();
     private final List<Cell> walkPath = new ArrayList<>();
-    private final Random random = new Random();
+    private Random random;
     private boolean building;
     private int totalSteps;
 
@@ -31,6 +31,7 @@ public class WilsonsMazeGenerator implements MazeGenerator {
         unvisited.clear();
         walkPath.clear();
         this.totalSteps = 0;
+        this.random = random != null ? random : new Random();
 
         for (Cell cell : grid.getAllCells()) {
             if (cell != null) {

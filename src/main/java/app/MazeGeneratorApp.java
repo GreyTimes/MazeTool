@@ -100,7 +100,6 @@ public class MazeGeneratorApp extends Application {
 
     // APPLICATION START
 
-    @Override
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Customizable JavaFX Maze Generator & Solver");
 
@@ -394,7 +393,7 @@ public class MazeGeneratorApp extends Application {
         Label statsInfo = createInfoIcon("Live metrics for cells, dead ends, and solution path length.");
         HBox statsHeaderBox = new HBox(5, new Label("Maze Metrics"), statsInfo);
 
-        // SEED INPUT & SHARE
+        // SEED & SHARE CODE CONTROLS (Issue #30)
         Label seedHeader = new Label("Generation Seed / Share Code:");
         Label seedInfo = createInfoIcon("Enter a custom seed or share code to reproduce exact mazes.");
         seedTextField = new javafx.scene.control.TextField(String.valueOf(currentSeed));
@@ -403,7 +402,7 @@ public class MazeGeneratorApp extends Application {
         Button randomizeSeedBtn = new Button("Randomize Seed");
         randomizeSeedBtn.setMaxWidth(Double.MAX_VALUE);
         randomizeSeedBtn.setOnAction(e -> {
-            currentSeed = new Random().nextLong();
+            currentSeed = new java.util.Random().nextLong();
             seedTextField.setText(String.valueOf(currentSeed));
         });
 
@@ -430,78 +429,77 @@ public class MazeGeneratorApp extends Application {
             }
         });
 
-        // CONTROLS LAYOUT
+        // --- TABPANE INTERFACE STRUCTURE ---
+        javafx.scene.control.TabPane controlTabs = new javafx.scene.control.TabPane();
+        controlTabs.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        VBox controls = new VBox(
-                6,
+        // TAB 1: COMBINED GENERATION & SOLVING ("Maze Editor")
+        VBox genSolveContent = new VBox(8,
+                new HBox(5, shapeHeader, shapeInfo), shapeCombo,
+                new HBox(5, entranceExitHeader, entranceExitInfo), entranceExitModeCombo, openingStatusLabel,
+                new HBox(5, algoHeader, algoInfo), algorithmCombo,
+                widthHeaderBox, widthSlider,
+                heightHeaderBox, heightSlider,
+                complexityHeaderBox, complexitySlider,
+                new Separator(),
+                new HBox(5, solverHeader, solverInfo), solverCombo,
+                speedHeaderBox, speedSlider,
+                solutionBox,
+                new Separator(),
+                new HBox(5, seedHeader, seedInfo), seedTextField,
+                randomizeSeedBtn, dailyChallengeBtn, copyShareCodeBtn
+        );
+        genSolveContent.setPadding(new Insets(10));
+        javafx.scene.control.Tab genSolveTab = new javafx.scene.control.Tab("Maze Editor", genSolveContent);
 
-                new HBox(5, shapeHeader, shapeInfo),
-                shapeCombo,
-
-                new HBox(5, entranceExitHeader, entranceExitInfo),
-                entranceExitModeCombo,
-                openingStatusLabel,
-
-                new HBox(5, algoHeader, algoInfo),
-                algorithmCombo,
-
-                new HBox(5, solverHeader, solverInfo),
-                solverCombo,
-
+        // TAB 2: GAMEPLAY ("Play")
+        VBox gameContent = new VBox(8,
                 playBox,
                 fogBox,
+                fogRadiusHeaderBox, fogRadiusSlider
+        );
+        gameContent.setPadding(new Insets(10));
+        javafx.scene.control.Tab gameTab = new javafx.scene.control.Tab("Play", gameContent);
+
+        // TAB 3: FILE & THEME ("File")
+        VBox fileContent = new VBox(8,
                 themeBox,
-
-                widthHeaderBox,
-                widthSlider,
-
-                heightHeaderBox,
-                heightSlider,
-
-                speedHeaderBox,
-                speedSlider,
-
-                complexityHeaderBox,
-                complexitySlider,
-
-                fogRadiusHeaderBox,
-                fogRadiusSlider,
-
-                genBox,
-                solutionBox,
                 exportBox,
                 saveBox,
                 loadBox,
-
                 new Separator(),
-
                 statsHeaderBox,
-                statsLabel,
-
-                new Separator(),
-
-                seedHeader,
-                seedTextField,
-                randomizeSeedBtn,
-                dailyChallengeBtn,
-                copyShareCodeBtn
+                statsLabel
         );
+        fileContent.setPadding(new Insets(10));
+        javafx.scene.control.Tab fileTab = new javafx.scene.control.Tab("File", fileContent);
 
-        controls.setPadding(new Insets(10));
-        controls.setPrefWidth(290);
+        controlTabs.getTabs().addAll(genSolveTab, gameTab, fileTab);
+
+        // PINNED GLOBAL TOOLBAR (Always accessible outside tabs)[cite: 3]
+        VBox pinnedGlobalBar = new VBox(8,
+                genBox,
+                playBox
+        );
+        pinnedGlobalBar.setPadding(new Insets(10));
+
+        // CONTROLS LAYOUT CONTAINER
+        VBox controls = new VBox(0, pinnedGlobalBar, new Separator(), controlTabs);
+        controls.setPrefWidth(320);
 
         // MAIN LAYOUT
 
         BorderPane root = new BorderPane();
         root.setCenter(mazeCanvas);
         root.setRight(controls);
-        Scene scene = new Scene(root, 920, 840);
+        Scene scene = new Scene(root, 940, 840);
 
         scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
 
         // THEME ACTION
 
-        themeToggle.setOnAction(event -> {String stylesheet = getClass().getResource("/style.css").toExternalForm();
+        themeToggle.setOnAction(event -> {
+            String stylesheet = getClass().getResource("/style.css").toExternalForm();
             if (themeToggle.isSelected()) {
                 themeToggle.setText("Theme: Dark");
                 if (!scene.getStylesheets().contains(stylesheet)) {
@@ -1255,12 +1253,12 @@ public class MazeGeneratorApp extends Application {
                     if (!running) {
                         animTimeline.stop();
                         entranceExitModeCombo.setDisable(false);
-                        grid.applyComplexityFactor(complexityFactor);
+                        grid.applyComplexityFactor(complexityFactor, seededRandom);
 
                         // CREATE ENTRANCE AND EXIT
 
                         if (openingMode == EntranceExitMode.CUSTOM) {
-                            grid.createOpenings(EntranceExitMode.CUSTOM);
+                            grid.createOpenings(EntranceExitMode.CUSTOM, seededRandom);
                             customSelectionActive = true;
                             customStartCell = null;
                             openingStatusLabel.setText("Custom selection: click a cell to set START. "
@@ -1269,7 +1267,7 @@ public class MazeGeneratorApp extends Application {
                         } else {
                             customSelectionActive = false;
                             customStartCell = null;
-                            grid.createOpenings(openingMode);
+                            grid.createOpenings(openingMode, seededRandom);
                             openingStatusLabel.setText("Entrance and exit configured: " + openingMode);
                         }
                         mazeCanvas.setCurrentHead(null);
