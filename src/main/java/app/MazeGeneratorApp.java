@@ -11,21 +11,10 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.Separator;
-import javafx.scene.control.Slider;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.*;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -275,14 +264,26 @@ public class MazeGeneratorApp extends Application {
 
         // GENERATION ANIMATION SPEED
 
-        Label speedLabel = new Label("Animation Delay (ms): 12");
+        Label speedLabel = new Label("Animation Delay (ms): 10");
         Label speedInfo = createInfoIcon("Controls the step-by-step maze generation animation speed.");
         HBox speedHeaderBox = new HBox(5, speedLabel, speedInfo);
-        Slider speedSlider = new Slider(1, 50, 12);
-        configureSlider(speedSlider, 10);
+
+        Slider speedSlider = new Slider(0, 50, 10);
+        speedSlider.setMajorTickUnit(10);
+        speedSlider.setMinorTickCount(4);
+        speedSlider.setShowTickMarks(true);
+        speedSlider.setShowTickLabels(true);
+
         speedSlider.valueProperty().addListener(
-                (obs, oldValue, newValue) ->
-                        speedLabel.setText("Animation Delay (ms): " + newValue.intValue())
+                (obs, oldValue, newValue) -> {
+                    int val = newValue.intValue();
+                    if (val == 0) {
+                        // Prevent 0ms freeze by snapping back to 1 or 2 silently
+                        speedSlider.setValue(1);
+                        val = 1;
+                    }
+                    speedLabel.setText("Animation Delay (ms): " + val);
+                }
         );
 
         // COMPLEXITY
@@ -433,7 +434,7 @@ public class MazeGeneratorApp extends Application {
         javafx.scene.control.TabPane controlTabs = new javafx.scene.control.TabPane();
         controlTabs.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        // TAB 1: COMBINED GENERATION & SOLVING ("Maze Editor")
+        // TAB 1: COMBINED GENERATION & SOLVING ("Maze Editor") WRAPPED IN A SCROLLPANE
         VBox genSolveContent = new VBox(8,
                 new HBox(5, shapeHeader, shapeInfo), shapeCombo,
                 new HBox(5, entranceExitHeader, entranceExitInfo), entranceExitModeCombo, openingStatusLabel,
@@ -450,7 +451,11 @@ public class MazeGeneratorApp extends Application {
                 randomizeSeedBtn, dailyChallengeBtn, copyShareCodeBtn
         );
         genSolveContent.setPadding(new Insets(10));
-        javafx.scene.control.Tab genSolveTab = new javafx.scene.control.Tab("Maze Editor", genSolveContent);
+
+        ScrollPane genSolveScroll = new ScrollPane(genSolveContent);
+        genSolveScroll.setFitToWidth(true);
+        genSolveScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        javafx.scene.control.Tab genSolveTab = new javafx.scene.control.Tab("Maze Editor", genSolveScroll);
 
         // TAB 2: GAMEPLAY ("Play")
         VBox gameContent = new VBox(8,
@@ -476,7 +481,7 @@ public class MazeGeneratorApp extends Application {
 
         controlTabs.getTabs().addAll(genSolveTab, gameTab, fileTab);
 
-        // PINNED GLOBAL TOOLBAR (Always accessible outside tabs)[cite: 3]
+        // PINNED GLOBAL TOOLBAR (Always accessible outside tabs)
         VBox pinnedGlobalBar = new VBox(8,
                 genBox,
                 playBox
@@ -487,10 +492,14 @@ public class MazeGeneratorApp extends Application {
         VBox controls = new VBox(0, pinnedGlobalBar, new Separator(), controlTabs);
         controls.setPrefWidth(320);
 
-        // MAIN LAYOUT
+        // WRAP CANVAS IN A STACKPANE FOR CLEAN CENTERING & MARGINS
+        StackPane canvasContainer = new StackPane(mazeCanvas);
+        canvasContainer.setAlignment(Pos.CENTER);
+        canvasContainer.setStyle("-fx-padding: 15;");
 
+        // MAIN LAYOUT
         BorderPane root = new BorderPane();
-        root.setCenter(mazeCanvas);
+        root.setCenter(canvasContainer);
         root.setRight(controls);
         Scene scene = new Scene(root, 940, 840);
 
@@ -638,6 +647,49 @@ public class MazeGeneratorApp extends Application {
 
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        // --- ISSUE #34: RESPONSIVE CANVAS AUTO-SCALING & DEBOUNCED RESIZE LISTENER ---[cite: 3, 4]
+        javafx.animation.PauseTransition resizeDebouncer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(100));
+        resizeDebouncer.setOnFinished(event -> {
+            double availableWidth = Math.max(300, scene.getWidth() - 340);
+            double availableHeight = Math.max(300, scene.getHeight() - 40);
+
+            if (mazeCanvas != null) {
+                double renderWidth = availableWidth;
+                double renderHeight = availableHeight;
+
+                // If it's a rectangular grid, preserve its structural aspect ratio so cells don't stretch!
+                if (grid != null && grid.getTopology() == TopologyType.RECTANGULAR && widthSlider != null && heightSlider != null) {
+                    double cols = widthSlider.getValue();
+                    double rows = heightSlider.getValue();
+                    double gridAspect = cols / rows;
+
+                    if (availableWidth / availableHeight > gridAspect) {
+                        renderWidth = availableHeight * gridAspect;
+                    } else {
+                        renderHeight = availableWidth / gridAspect;
+                    }
+                } else {
+                    // Circular/Polygonal shapes remain square-bound
+                    double size = Math.min(availableWidth, availableHeight);
+                    renderWidth = size;
+                    renderHeight = size;
+                }
+
+                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
+                if (grid != null) {
+                    if (grid.isCircular()) {
+                        grid.layoutCircularGrid(renderWidth, renderHeight, 0.0);
+                    } else if (grid.isPolygonal()) {
+                        grid.layoutPolygonGrid(renderWidth, renderHeight, 0.0);
+                    }
+                    mazeCanvas.draw();
+                }
+            }
+        });
+
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
     }
 
     // ENTRANCE / EXIT MODE OPTIONS
@@ -1176,32 +1228,49 @@ public class MazeGeneratorApp extends Application {
             case RECTANGULAR, CIRCULAR -> new MazeGrid(width, height, topology);
         };
 
+        // CALCULATE RESPONSIVE WORKSPACE DIMENSIONS BASED ON CURRENT WINDOW SIZE
+        Scene currentScene = (mazeCanvas != null) ? mazeCanvas.getScene() : null;
+        double availableWidth = (currentScene != null) ? Math.max(300, currentScene.getWidth() - 340) : CANVAS_SIZE;
+        double availableHeight = (currentScene != null) ? Math.max(300, currentScene.getHeight() - 40) : CANVAS_SIZE;
+        double renderWidth = availableWidth;
+        double renderHeight = availableHeight;
+
+        if (topology == TopologyType.RECTANGULAR) {
+            double gridAspect = (double) width / height;
+            if (availableWidth / availableHeight > gridAspect) {
+                renderWidth = availableHeight * gridAspect;
+            } else {
+                renderHeight = availableWidth / gridAspect;
+            }
+        } else {
+            double size = Math.min(availableWidth, availableHeight);
+            renderWidth = size;
+            renderHeight = size;
+        }
+
         // CANVAS DIMENSIONS AND GEOMETRY
 
         switch (topology) {
             case RECTANGULAR -> {
-                double cellSize = CANVAS_SIZE / Math.max(width, height);
-                mazeCanvas.setWidth(width * cellSize);
-                mazeCanvas.setHeight(height * cellSize);
+                double cellWidth = renderWidth / width;
+                double cellHeight = renderHeight / height;
+                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
                 for (Cell cell : grid.getAllCells()) {
-                    cell.screenX = (cell.x + 0.5) * cellSize;
-                    cell.screenY = (cell.y + 0.5) * cellSize;
+                    cell.screenX = (cell.x + 0.5) * cellWidth;
+                    cell.screenY = (cell.y + 0.5) * cellHeight;
                 }
             }
             case CIRCULAR -> {
-                mazeCanvas.setWidth(CANVAS_SIZE);
-                mazeCanvas.setHeight(CANVAS_SIZE);
-                grid.layoutCircularGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
+                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
+                grid.layoutCircularGrid(renderWidth, renderHeight, GEOMETRY_PADDING);
             }
             case HEXAGONAL -> {
-                mazeCanvas.setWidth(CANVAS_SIZE);
-                mazeCanvas.setHeight(CANVAS_SIZE);
-                grid.layoutHexagonalGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
+                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
+                grid.layoutHexagonalGrid(renderWidth, renderHeight, GEOMETRY_PADDING);
             }
             case TRIANGULAR -> {
-                mazeCanvas.setWidth(CANVAS_SIZE);
-                mazeCanvas.setHeight(CANVAS_SIZE);
-                grid.layoutTriangularGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
+                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
+                grid.layoutTriangularGrid(renderWidth, renderHeight, GEOMETRY_PADDING);
             }
         }
 

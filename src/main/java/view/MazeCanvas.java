@@ -163,4 +163,10 @@ public class MazeCanvas extends Canvas {
             LOGGER.log(Level.SEVERE, "Unexpected rendering exception in MazeCanvas: " + ex.getMessage(), ex);
         }
     }
+
+    public void resizeCanvas(double width, double height) {
+        this.setWidth(width);
+        this.setHeight(height);
+        draw();
+    }
 }
