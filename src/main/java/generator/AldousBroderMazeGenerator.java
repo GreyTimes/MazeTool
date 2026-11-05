@@ -17,16 +17,18 @@ public class AldousBroderMazeGenerator implements MazeGenerator {
     private Cell current;
     private int unvisitedCount;
     private int totalSteps;
-    private final Random random = new Random();
+    private Random random;
 
     @Override
-    public void initialize(MazeGrid grid) {
+    public void initialize(MazeGrid grid, Random random) {
         if (grid == null || grid.getAllCells() == null || grid.getAllCells().isEmpty()) {
             throw new IllegalArgumentException("A non-empty maze grid is required.");
         }
 
         this.grid = grid;
         this.totalSteps = 0;
+        this.random = random != null ? random : new Random();
+
         for (Cell cell : grid.getAllCells()) {
             if (cell != null) {
                 cell.visited = false;

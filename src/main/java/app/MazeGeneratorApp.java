@@ -50,6 +50,7 @@ import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Random;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -94,6 +95,8 @@ public class MazeGeneratorApp extends Application {
     private boolean customSelectionActive = false;
     private Cell customStartCell;
     private int fogRadius = 2;
+    private javafx.scene.control.TextField seedTextField;
+    private long currentSeed = System.currentTimeMillis();
 
     // APPLICATION START
 
@@ -391,6 +394,42 @@ public class MazeGeneratorApp extends Application {
         Label statsInfo = createInfoIcon("Live metrics for cells, dead ends, and solution path length.");
         HBox statsHeaderBox = new HBox(5, new Label("Maze Metrics"), statsInfo);
 
+        // SEED INPUT & SHARE
+        Label seedHeader = new Label("Generation Seed / Share Code:");
+        Label seedInfo = createInfoIcon("Enter a custom seed or share code to reproduce exact mazes.");
+        seedTextField = new javafx.scene.control.TextField(String.valueOf(currentSeed));
+        seedTextField.setMaxWidth(Double.MAX_VALUE);
+
+        Button randomizeSeedBtn = new Button("Randomize Seed");
+        randomizeSeedBtn.setMaxWidth(Double.MAX_VALUE);
+        randomizeSeedBtn.setOnAction(e -> {
+            currentSeed = new Random().nextLong();
+            seedTextField.setText(String.valueOf(currentSeed));
+        });
+
+        Button dailyChallengeBtn = new Button("Maze of the Day (Daily Challenge)");
+        dailyChallengeBtn.setMaxWidth(Double.MAX_VALUE);
+        dailyChallengeBtn.setOnAction(e -> {
+            String todayStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_DATE);
+            currentSeed = todayStr.hashCode();
+            seedTextField.setText(todayStr);
+            openingStatusLabel.setText("Loaded Daily Challenge for: " + todayStr);
+        });
+
+        Button copyShareCodeBtn = new Button("Copy Share Code");
+        copyShareCodeBtn.setMaxWidth(Double.MAX_VALUE);
+        copyShareCodeBtn.setOnAction(e -> {
+            try {
+                String shareCode = shapeCombo.getValue() + "|" + seedTextField.getText() + "|" + algorithmCombo.getValue();
+                javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+                content.putString(shareCode);
+                javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+                new Alert(Alert.AlertType.INFORMATION, "Share code copied to clipboard!", ButtonType.OK).show();
+            } catch (Exception ex) {
+                new Alert(Alert.AlertType.ERROR, "Failed to copy to clipboard: " + ex.getMessage(), ButtonType.OK).show();
+            }
+        });
+
         // CONTROLS LAYOUT
 
         VBox controls = new VBox(
@@ -437,7 +476,15 @@ public class MazeGeneratorApp extends Application {
                 new Separator(),
 
                 statsHeaderBox,
-                statsLabel
+                statsLabel,
+
+                new Separator(),
+
+                seedHeader,
+                seedTextField,
+                randomizeSeedBtn,
+                dailyChallengeBtn,
+                copyShareCodeBtn
         );
 
         controls.setPadding(new Insets(10));
@@ -1097,6 +1144,24 @@ public class MazeGeneratorApp extends Application {
         TopologyType topology = shapeCombo.getValue();
         EntranceExitMode openingMode = entranceExitModeCombo.getValue();
 
+        // PARSE SEED
+        long seedToUse;
+        try {
+            String text = seedTextField.getText().trim();
+            if (text.isEmpty()) {
+                seedToUse = System.currentTimeMillis();
+            } else {
+                try {
+                    seedToUse = Long.parseLong(text);
+                } catch (NumberFormatException e) {
+                    seedToUse = text.hashCode();
+                }
+            }
+        } catch (Exception e) {
+            seedToUse = System.currentTimeMillis();
+        }
+        java.util.Random seededRandom = new java.util.Random(seedToUse);
+
         // SELECT RENDERER
 
         switch (topology) {
@@ -1175,7 +1240,7 @@ public class MazeGeneratorApp extends Application {
             case "Wilson's" -> new WilsonsMazeGenerator();
             default -> new DfsMazeGenerator();
         };
-        generator.initialize(grid);
+        generator.initialize(grid, seededRandom);
 
         // GENERATION TIMELINE
 
@@ -1199,7 +1264,7 @@ public class MazeGeneratorApp extends Application {
                             customSelectionActive = true;
                             customStartCell = null;
                             openingStatusLabel.setText("Custom selection: click a cell to set START. "
-                                            + "Then click another cell to set END."
+                                    + "Then click another cell to set END."
                             );
                         } else {
                             customSelectionActive = false;

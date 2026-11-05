@@ -22,7 +22,7 @@ public class WilsonsMazeGenerator implements MazeGenerator {
     private int totalSteps;
 
     @Override
-    public void initialize(MazeGrid grid) {
+    public void initialize(MazeGrid grid, Random random) {
         if (grid == null || grid.getAllCells() == null || grid.getAllCells().isEmpty()) {
             throw new IllegalArgumentException("A non-empty maze grid is required.");
         }

@@ -21,14 +21,14 @@ public class PrimsMazeGenerator implements MazeGenerator {
     private int totalSteps;
 
     @Override
-    public void initialize(MazeGrid grid) {
+    public void initialize(MazeGrid grid, Random random) {
         if (grid == null || grid.getAllCells() == null || grid.getAllCells().isEmpty()) {
             throw new IllegalArgumentException("A non-empty maze grid is required.");
         }
 
         this.grid = grid;
         this.frontier = new ArrayList<>();
-        this.random = new Random();
+        this.random = random != null ? random : new Random();
         this.totalSteps = 0;
 
         List<Cell> cells = grid.getAllCells();

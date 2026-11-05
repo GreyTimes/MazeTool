@@ -22,14 +22,14 @@ public class DfsMazeGenerator implements MazeGenerator {
     private int totalSteps;
 
     @Override
-    public void initialize(MazeGrid grid) {
+    public void initialize(MazeGrid grid, Random random) {
         if (grid == null || grid.getAllCells() == null || grid.getAllCells().isEmpty()) {
             throw new IllegalArgumentException("A non-empty maze grid is required.");
         }
 
         this.grid = grid;
         this.stack = new Stack<>();
-        this.random = new Random();
+        this.random = random != null ? random : new Random();
         this.totalSteps = 0;
 
         for (Cell cell : grid.getAllCells()) {
