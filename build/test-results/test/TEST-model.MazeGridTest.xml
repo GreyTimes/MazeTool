@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="model.MazeGridTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-05T20:56:05.440Z" hostname="HOMELAB" time="0.028">
-  <properties/>
-  <testcase name="testNonSquareRectangularGrid()" classname="model.MazeGridTest" time="0.016"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
