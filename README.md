@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./MazeTool.jpg" alt="Logo" width="300" align="center "/>
+  <img src="./MazinLogo.jpg" alt="Logo" width="300" align="center "/>
 </div>
 
 # JavaFX Maze Generator & Solver
