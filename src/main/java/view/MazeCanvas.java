@@ -10,11 +10,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * Canvas facade shared by rectangular, polar and polygonal renderers.
+ * Canvas facade shared by rectangular, polar, and polygonal renderers with robust error guarding.
  */
 public class MazeCanvas extends Canvas {
+    private static final Logger LOGGER = Logger.getLogger(MazeCanvas.class.getName());
+
     private MazeGrid grid;
     private List<Cell> solvedPath;
     private Cell currentHead;
@@ -27,13 +31,14 @@ public class MazeCanvas extends Canvas {
     private MazeRenderer renderer = new RectangularRenderer();
 
     public MazeCanvas(double width, double height) {
-        super(width, height);
+        super(Math.max(1.0, width), Math.max(1.0, height));
         draw();
     }
 
     public void setRenderer(MazeRenderer renderer) {
         if (renderer == null) {
-            throw new IllegalArgumentException("Renderer cannot be null.");
+            LOGGER.warning("Attempted to set a null renderer; keeping existing renderer.");
+            return;
         }
         this.renderer = renderer;
         renderer.setDarkMode(darkMode);
@@ -46,9 +51,11 @@ public class MazeCanvas extends Canvas {
         this.grid = grid;
         highlightedCells = Collections.emptyList();
         hoveredCell = null;
-        renderer.setHighlightedCells(highlightedCells);
-        renderer.setHoveredCell(null);
-        renderer.clearPlayerScreenPosition();
+        if (renderer != null) {
+            renderer.setHighlightedCells(highlightedCells);
+            renderer.setHoveredCell(null);
+            renderer.clearPlayerScreenPosition();
+        }
         draw();
     }
 
@@ -73,13 +80,15 @@ public class MazeCanvas extends Canvas {
 
     public void setFogOfWarActive(boolean active, int radius) {
         this.fogOfWarActive = active;
-        this.fogRadius = radius;
+        this.fogRadius = Math.max(1, radius);
         draw();
     }
 
     public void setDarkMode(boolean darkMode) {
         this.darkMode = darkMode;
-        renderer.setDarkMode(darkMode);
+        if (renderer != null) {
+            renderer.setDarkMode(darkMode);
+        }
         draw();
     }
 
@@ -87,45 +96,71 @@ public class MazeCanvas extends Canvas {
 
     public void setHighlightedCells(Collection<Cell> cells) {
         highlightedCells = cells == null ? Collections.emptyList() : new ArrayList<>(cells);
-        renderer.setHighlightedCells(highlightedCells);
+        if (renderer != null) {
+            renderer.setHighlightedCells(highlightedCells);
+        }
         draw();
     }
 
     public void setHoveredCell(Cell cell) {
         hoveredCell = cell;
-        renderer.setHoveredCell(cell);
+        if (renderer != null) {
+            renderer.setHoveredCell(cell);
+        }
         draw();
     }
 
     public void setPlayerScreenPosition(double x, double y) {
-        renderer.setPlayerScreenPosition(x, y);
+        if (renderer != null) {
+            renderer.setPlayerScreenPosition(x, y);
+        }
         draw();
     }
 
     public void clearPlayerScreenPosition() {
-        renderer.clearPlayerScreenPosition();
+        if (renderer != null) {
+            renderer.clearPlayerScreenPosition();
+        }
         draw();
     }
 
-
     public Cell findCellAt(double x, double y) {
-        return renderer.findCellAt(x, y, getWidth(), getHeight(), grid);
+        if (renderer == null || grid == null) {
+            return null;
+        }
+        try {
+            return renderer.findCellAt(x, y, Math.max(1.0, getWidth()), Math.max(1.0, getHeight()), grid);
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Error finding cell at coordinates (" + x + ", " + y + "): " + ex.getMessage());
+            return null;
+        }
     }
 
     // DRAW
 
     public void draw() {
-        GraphicsContext gc = getGraphicsContext2D();
-        renderer.render(
-                gc,
-                getWidth(),
-                getHeight(),
-                grid,
-                playerCell,
-                solvedPath,
-                currentHead,
-                fogOfWarActive,
-                fogRadius
-        );
+        try {
+            GraphicsContext gc = getGraphicsContext2D();
+            if (gc == null || renderer == null) {
+                return;
+            }
+
+            double w = Math.max(1.0, getWidth());
+            double h = Math.max(1.0, getHeight());
+
+            renderer.render(
+                    gc,
+                    w,
+                    h,
+                    grid,
+                    playerCell,
+                    solvedPath,
+                    currentHead,
+                    fogOfWarActive,
+                    fogRadius
+            );
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Unexpected rendering exception in MazeCanvas: " + ex.getMessage(), ex);
+        }
     }
 }

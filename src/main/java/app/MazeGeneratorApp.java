@@ -856,54 +856,75 @@ public class MazeGeneratorApp extends Application {
     // ENHANCED IMAGE EXPORT (PNG / JPG WITH BACKGROUND FALLBACK)
 
     private void exportMazeImage(Stage owner) {
-        javafx.scene.control.ChoiceDialog<String> formatDialog = new javafx.scene.control.ChoiceDialog<>("PNG", "PNG", "JPG");
-        formatDialog.setTitle("Export Image Format");
-        formatDialog.setHeaderText("Choose Image Export Format");
-        formatDialog.setContentText("Format:");
-
-        java.util.Optional<String> result = formatDialog.showAndWait();
-        if (result.isEmpty()) {
+        if (mazeCanvas == null || grid == null) {
+            new Alert(Alert.AlertType.WARNING, "No maze canvas available to export.", ButtonType.OK).show();
             return;
         }
-        String format = result.get();
-
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Maze Image (" + format + ")");
-        if ("JPG".equalsIgnoreCase(format)) {
-            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JPG Image (*.jpg)", "*.jpg"));
-            fileChooser.setInitialFileName("maze.jpg");
-        } else {
-            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image (*.png)", "*.png"));
-            fileChooser.setInitialFileName("maze.png");
-        }
-
-        File file = fileChooser.showSaveDialog(owner);
-        if (file == null) {
-            return;
-        }
-
-        WritableImage image = new WritableImage((int) mazeCanvas.getWidth(), (int) mazeCanvas.getHeight());
-        mazeCanvas.snapshot(null, image);
-        java.awt.image.BufferedImage bImage = SwingFXUtils.fromFXImage(image, null);
 
         try {
+            javafx.scene.control.ChoiceDialog<String> formatDialog = new javafx.scene.control.ChoiceDialog<>("PNG", "PNG", "JPG");
+            formatDialog.setTitle("Export Image Format");
+            formatDialog.setHeaderText("Choose Image Export Format");
+            formatDialog.setContentText("Format:");
+
+            java.util.Optional<String> result = formatDialog.showAndWait();
+            if (result.isEmpty()) {
+                return;
+            }
+            String format = result.get();
+
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Save Maze Image (" + format + ")");
             if ("JPG".equalsIgnoreCase(format)) {
-                // JPG fallback: paint a solid background (dark or light theme)
+                fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JPG Image (*.jpg)", "*.jpg"));
+                fileChooser.setInitialFileName("maze.jpg");
+            } else {
+                fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Image (*.png)", "*.png"));
+                fileChooser.setInitialFileName("maze.png");
+            }
+
+            File file = fileChooser.showSaveDialog(owner);
+            if (file == null) {
+                return;
+            }
+
+            int width = Math.max(1, (int) mazeCanvas.getWidth());
+            int height = Math.max(1, (int) mazeCanvas.getHeight());
+            WritableImage image = new WritableImage(width, height);
+            mazeCanvas.snapshot(null, image);
+            java.awt.image.BufferedImage bImage = SwingFXUtils.fromFXImage(image, null);
+
+            if (bImage == null) {
+                throw new IOException("Failed to create image snapshot from canvas.");
+            }
+
+            if ("JPG".equalsIgnoreCase(format)) {
                 java.awt.image.BufferedImage solidImage = new java.awt.image.BufferedImage(
-                        bImage.getWidth(), bImage.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB
+                        width, height, java.awt.image.BufferedImage.TYPE_INT_RGB
                 );
                 java.awt.Graphics2D g2d = solidImage.createGraphics();
                 g2d.setColor(themeToggle.isSelected() ? java.awt.Color.BLACK : java.awt.Color.WHITE);
-                g2d.fillRect(0, 0, solidImage.getWidth(), solidImage.getHeight());
+                g2d.fillRect(0, 0, width, height);
                 g2d.drawImage(bImage, 0, 0, null);
                 g2d.dispose();
-                ImageIO.write(solidImage, "jpg", file);
+                boolean written = ImageIO.write(solidImage, "jpg", file);
+                if (!written) {
+                    throw new IOException("No appropriate JPG writer found.");
+                }
             } else {
-                ImageIO.write(bImage, "png", file);
+                boolean written = ImageIO.write(bImage, "png", file);
+                if (!written) {
+                    throw new IOException("No appropriate PNG writer found.");
+                }
             }
-        } catch (IOException ex) {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save image: " + ex.getMessage(), ButtonType.OK);
-            alert.show();
+
+            new Alert(Alert.AlertType.INFORMATION, "Image successfully exported!", ButtonType.OK).show();
+        } catch (Exception ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Export Error");
+            alert.setHeaderText("Failed to export maze image.");
+            alert.setContentText("Check disk space or write permissions: " + ex.getMessage());
+            alert.showAndWait();
         }
     }
 
@@ -911,8 +932,7 @@ public class MazeGeneratorApp extends Application {
 
     private void saveLabyrinthFile(Stage owner) {
         if (grid == null) {
-            Alert alert = new Alert(Alert.AlertType.WARNING, "No maze generated to save.", ButtonType.OK);
-            alert.show();
+            new Alert(Alert.AlertType.WARNING, "No maze generated to save.", ButtonType.OK).show();
             return;
         }
 
@@ -927,15 +947,12 @@ public class MazeGeneratorApp extends Application {
 
         try {
             com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
-
-            // Capture state into a DTO or JSON structure
             java.util.Map<String, Object> data = new java.util.HashMap<>();
             data.put("cols", grid.cols);
             data.put("rows", grid.rows);
             data.put("topology", grid.getTopology().name());
             data.put("polarRingCount", grid.getPolarRingCount());
 
-            // Serialize cell states, walls, and discoveries
             java.util.List<java.util.Map<String, Object>> cellList = new java.util.ArrayList<>();
             for (Cell cell : grid.getAllCells()) {
                 java.util.Map<String, Object> cData = new java.util.HashMap<>();
@@ -947,7 +964,6 @@ public class MazeGeneratorApp extends Application {
                 cData.put("isEntrance", cell.isEntrance);
                 cData.put("isExit", cell.isExit);
 
-                // Map neighbor open states
                 java.util.Map<String, Boolean> neighbors = new java.util.HashMap<>();
                 for (java.util.Map.Entry<Cell, Boolean> entry : cell.getNeighbors().entrySet()) {
                     neighbors.put(entry.getKey().x + "," + entry.getKey().y, entry.getValue());
@@ -957,18 +973,13 @@ public class MazeGeneratorApp extends Application {
             }
             data.put("cells", cellList);
 
-            String json = gson.toJson(data);
-            java.nio.file.Files.writeString(file.toPath(), json, java.nio.charset.StandardCharsets.UTF_8);
-
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Labyrinth successfully saved!", ButtonType.OK);
-            alert.show();
+            java.nio.file.Files.writeString(file.toPath(), gson.toJson(data), java.nio.charset.StandardCharsets.UTF_8);
+            new Alert(Alert.AlertType.INFORMATION, "Labyrinth successfully saved!", ButtonType.OK).show();
         } catch (Exception ex) {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save labyrinth: " + ex.getMessage(), ButtonType.OK);
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to save labyrinth file: " + ex.getMessage(), ButtonType.OK);
             alert.show();
         }
     }
-
-    // LOAD LABYRINTH (.maze Deserialization with full state restoration)
 
     private void loadLabyrinthFile(Stage owner) {
         FileChooser fileChooser = new FileChooser();
@@ -984,11 +995,14 @@ public class MazeGeneratorApp extends Application {
             com.google.gson.Gson gson = new com.google.gson.Gson();
             java.util.Map<?, ?> data = gson.fromJson(json, java.util.Map.class);
 
+            if (data == null || !data.containsKey("cols") || !data.containsKey("rows") || !data.containsKey("topology")) {
+                throw new IllegalArgumentException("Invalid or corrupt .maze file structure.");
+            }
+
             int cols = ((Number) data.get("cols")).intValue();
             int rows = ((Number) data.get("rows")).intValue();
             TopologyType topology = TopologyType.valueOf((String) data.get("topology"));
 
-            // Set UI shape combo
             shapeCombo.setValue(topology);
             switch (topology) {
                 case RECTANGULAR -> mazeCanvas.setRenderer(new RectangularRenderer());
@@ -997,13 +1011,11 @@ public class MazeGeneratorApp extends Application {
                 case TRIANGULAR -> mazeCanvas.setRenderer(new TriangularRenderer());
             }
 
-            // Recreate grid skeleton
             grid = switch (topology) {
                 case HEXAGONAL, TRIANGULAR -> new MazeGrid(cols, cols, topology);
                 case RECTANGULAR, CIRCULAR -> new MazeGrid(cols, rows, topology);
             };
 
-            // Apply layout dimensions
             switch (topology) {
                 case RECTANGULAR -> {
                     double cellSize = CANVAS_SIZE / Math.max(cols, rows);
@@ -1015,42 +1027,39 @@ public class MazeGeneratorApp extends Application {
                 case TRIANGULAR -> grid.layoutTriangularGrid(CANVAS_SIZE, CANVAS_SIZE, GEOMETRY_PADDING);
             }
 
-            // Restore cell states, wall openings, and endpoints from JSON
             java.util.List<?> cellList = (java.util.List<?>) data.get("cells");
+            if (cellList != null) {
+                java.util.Map<String, Cell> cellMap = new java.util.HashMap<>();
+                for (Cell cell : grid.getAllCells()) {
+                    cellMap.put(cell.x + "," + cell.y, cell);
+                }
 
-            // Map existing grid cells by coordinate string for easy lookup
-            java.util.Map<String, Cell> cellMap = new java.util.HashMap<>();
-            for (Cell cell : grid.getAllCells()) {
-                cellMap.put(cell.x + "," + cell.y, cell);
-            }
+                for (Object rawCData : cellList) {
+                    java.util.Map<?, ?> cData = (java.util.Map<?, ?>) rawCData;
+                    int cx = ((Number) cData.get("x")).intValue();
+                    int cy = ((Number) cData.get("y")).intValue();
 
-            for (Object rawCData : cellList) {
-                java.util.Map<?, ?> cData = (java.util.Map<?, ?>) rawCData;
-                int cx = ((Number) cData.get("x")).intValue();
-                int cy = ((Number) cData.get("y")).intValue();
+                    Cell cell = cellMap.get(cx + "," + cy);
+                    if (cell != null) {
+                        cell.discovered = (Boolean) cData.get("discovered");
+                        cell.isEntrance = (Boolean) cData.get("isEntrance");
+                        cell.isExit = (Boolean) cData.get("isExit");
 
-                Cell cell = cellMap.get(cx + "," + cy);
-                if (cell != null) {
-                    cell.discovered = (Boolean) cData.get("discovered");
-                    cell.isEntrance = (Boolean) cData.get("isEntrance");
-                    cell.isExit = (Boolean) cData.get("isExit");
-
-                    // Restore open neighbor walls
-                    java.util.Map<?, ?> savedNeighbors = (java.util.Map<?, ?>) cData.get("neighbors");
-                    if (savedNeighbors != null) {
-                        for (java.util.Map.Entry<?, ?> entry : savedNeighbors.entrySet()) {
-                            String targetKey = (String) entry.getKey();
-                            boolean isOpen = (Boolean) entry.getValue();
-                            Cell neighbor = cellMap.get(targetKey);
-                            if (neighbor != null && isOpen) {
-                                cell.getNeighbors().put(neighbor, true);
+                        java.util.Map<?, ?> savedNeighbors = (java.util.Map<?, ?>) cData.get("neighbors");
+                        if (savedNeighbors != null) {
+                            for (java.util.Map.Entry<?, ?> entry : savedNeighbors.entrySet()) {
+                                String targetKey = (String) entry.getKey();
+                                boolean isOpen = (Boolean) entry.getValue();
+                                Cell neighbor = cellMap.get(targetKey);
+                                if (neighbor != null && isOpen) {
+                                    cell.getNeighbors().put(neighbor, true);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Refresh canvas display
             mazeCanvas.setGrid(grid);
             mazeCanvas.setSolvedPath(null);
             mazeCanvas.setCurrentHead(null);
@@ -1060,11 +1069,18 @@ public class MazeGeneratorApp extends Application {
             mazeCanvas.draw();
             updateStatistics(-1);
 
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Labyrinth loaded successfully!", ButtonType.OK);
-            alert.show();
+            new Alert(Alert.AlertType.INFORMATION, "Labyrinth loaded successfully!", ButtonType.OK).show();
         } catch (Exception ex) {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Failed to load labyrinth: " + ex.getMessage(), ButtonType.OK);
-            alert.show();
+            // Fallback State: Fall back to generating a fresh default 20x20 grid
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Load Error");
+            alert.setHeaderText("Failed to load labyrinth file.");
+            alert.setContentText("The file is corrupt or incompatible: " + ex.getMessage() + "\n\nFalling back to a default 20x20 maze.");
+            alert.showAndWait();
+
+            // Trigger fallback default generation
+            shapeCombo.setValue(TopologyType.RECTANGULAR);
+            startGenerationAnimation(20, 20, 12, 0.5, "Recursive Backtracker (DFS)");
         }
     }
 
@@ -1553,6 +1569,26 @@ public class MazeGeneratorApp extends Application {
     }
 
     public static void main(String[] args) {
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            System.err.println("Uncaught exception on thread " + thread.getName() + ": " + throwable);
+            try {
+                java.nio.file.Files.writeString(
+                        java.nio.file.Path.of("error.log"),
+                        java.time.LocalDateTime.now() + " [" + thread.getName() + "] " + throwable.toString() + "\n",
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND
+                );
+            } catch (IOException ignored) {}
+
+            // Run recovery dialog on JavaFX application thread if possible
+            javafx.application.Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Unexpected Application Error");
+                alert.setHeaderText("An unexpected error occurred.");
+                alert.setContentText("Details have been logged to error.log.\nError: " + throwable.getMessage());
+                alert.showAndWait();
+            });
+        });
 
         launch(args);
     }

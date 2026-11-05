@@ -64,14 +64,23 @@ public class MazeGrid {
             throw new IllegalArgumentException("Maze width and height must both be positive.");
         }
 
+        if (topology == TopologyType.CIRCULAR && (width > 50 || height > 30)) {
+            throw new IllegalArgumentException("Circular grid parameters exceed safe safety limits.");
+        }
+
         this.cols = width;
         this.rows = height;
         this.topology = topology == null ? TopologyType.RECTANGULAR : topology;
-        switch (this.topology) {
-            case RECTANGULAR -> buildRectangularGrid();
-            case CIRCULAR -> initializeCircularGrid();
-            case HEXAGONAL -> initializeHexagonalGrid();
-            case TRIANGULAR -> initializeTriangularGrid();
+
+        try {
+            switch (this.topology) {
+                case RECTANGULAR -> buildRectangularGrid();
+                case CIRCULAR -> initializeCircularGrid();
+                case HEXAGONAL -> initializeHexagonalGrid();
+                case TRIANGULAR -> initializeTriangularGrid();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Topology generation failed for " + topology + ": " + e.getMessage(), e);
         }
     }
 

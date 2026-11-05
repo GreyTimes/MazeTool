@@ -9,9 +9,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-/** Randomized Kruskal's algorithm with a disjoint-set (union-find) structure. */
+/** Randomized Kruskal's algorithm with bounds and disjoint-set safety. */
 public class KruskalsMazeGenerator implements MazeGenerator {
+    private static final Logger LOGGER = Logger.getLogger(KruskalsMazeGenerator.class.getName());
+
     private MazeGrid grid;
     private List<Edge> edges;
     private int edgeIndex;
@@ -21,6 +25,7 @@ public class KruskalsMazeGenerator implements MazeGenerator {
     private int acceptedEdges;
     private int requiredEdges;
     private Cell currentHead;
+
     private static final class Edge {
         private final Cell a;
         private final Cell b;
@@ -32,7 +37,7 @@ public class KruskalsMazeGenerator implements MazeGenerator {
 
     @Override
     public void initialize(MazeGrid grid) {
-        if (grid == null || grid.getAllCells().isEmpty()) {
+        if (grid == null || grid.getAllCells() == null || grid.getAllCells().isEmpty()) {
             throw new IllegalArgumentException("A non-empty maze grid is required.");
         }
 
@@ -49,17 +54,24 @@ public class KruskalsMazeGenerator implements MazeGenerator {
 
         for (int i = 0; i < size; i++) {
             Cell cell = allCells.get(i);
-            cell.visited = true;
-            cellIndexes.put(cell, i);
-            parent[i] = i;
+            if (cell != null) {
+                cell.visited = true;
+                cellIndexes.put(cell, i);
+                parent[i] = i;
+            }
         }
 
         for (int i = 0; i < size; i++) {
             Cell cell = allCells.get(i);
-            for (Cell neighbor : cell.getAdjacentCells()) {
-                Integer neighborIndex = cellIndexes.get(neighbor);
-                if (neighborIndex != null && i < neighborIndex) {
-                    edges.add(new Edge(cell, neighbor));
+            if (cell == null) continue;
+            List<Cell> adj = cell.getAdjacentCells();
+            if (adj != null) {
+                for (Cell neighbor : adj) {
+                    if (neighbor == null) continue;
+                    Integer neighborIndex = cellIndexes.get(neighbor);
+                    if (neighborIndex != null && i < neighborIndex) {
+                        edges.add(new Edge(cell, neighbor));
+                    }
                 }
             }
         }
@@ -70,33 +82,43 @@ public class KruskalsMazeGenerator implements MazeGenerator {
 
     @Override
     public boolean step() {
-
         if (acceptedEdges >= requiredEdges || edgeIndex >= edges.size()) {
             currentHead = null;
             return false;
         }
 
-        Edge edge = edges.get(edgeIndex++);
-        currentHead = edge.a;
+        try {
+            Edge edge = edges.get(edgeIndex++);
+            currentHead = edge.a;
 
-        int rootA = find(cellIndexes.get(edge.a));
-        int rootB = find(cellIndexes.get(edge.b));
+            Integer idxA = cellIndexes.get(edge.a);
+            Integer idxB = cellIndexes.get(edge.b);
+            if (idxA != null && idxB != null) {
+                int rootA = find(idxA);
+                int rootB = find(idxB);
 
-        if (rootA != rootB) {
-            grid.removeWalls(edge.a, edge.b);
-            union(rootA, rootB);
-            acceptedEdges++;
-        }
+                if (rootA != rootB) {
+                    grid.removeWalls(edge.a, edge.b);
+                    union(rootA, rootB);
+                    acceptedEdges++;
+                }
+            }
 
-        if (acceptedEdges >= requiredEdges || edgeIndex >= edges.size()) {
+            if (acceptedEdges >= requiredEdges || edgeIndex >= edges.size()) {
+                currentHead = null;
+                return false;
+            }
+
+            return true;
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Error during Kruskal's step: " + ex.getMessage(), ex);
             currentHead = null;
             return false;
         }
-
-        return true;
     }
 
     private int find(int value) {
+        if (value < 0 || value >= parent.length) return value;
         if (parent[value] != value) {
             parent[value] = find(parent[value]);
         }
@@ -104,6 +126,7 @@ public class KruskalsMazeGenerator implements MazeGenerator {
     }
 
     private void union(int rootA, int rootB) {
+        if (rootA < 0 || rootA >= parent.length || rootB < 0 || rootB >= parent.length) return;
         if (rank[rootA] < rank[rootB]) {
             parent[rootA] = rootB;
         } else if (rank[rootA] > rank[rootB]) {
