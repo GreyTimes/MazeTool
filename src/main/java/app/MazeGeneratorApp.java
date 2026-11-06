@@ -25,11 +25,7 @@ import model.MazeGrid;
 import model.PolarCell;
 import model.TopologyType;
 
-import view.MazeCanvas;
-import view.RectangularRenderer;
-import view.CircularRenderer;
-import view.HexagonalRenderer;
-import view.TriangularRenderer;
+import view.*;
 
 import generator.*;
 import solver.*;
@@ -278,7 +274,6 @@ public class MazeGeneratorApp extends Application {
                 (obs, oldValue, newValue) -> {
                     int val = newValue.intValue();
                     if (val == 0) {
-                        // Prevent 0ms freeze by snapping back to 1 or 2 silently
                         speedSlider.setValue(1);
                         val = 1;
                     }
@@ -381,6 +376,16 @@ public class MazeGeneratorApp extends Application {
         loadBox.setAlignment(Pos.CENTER_LEFT);
         loadMazeBtn.setOnAction(event -> loadLabyrinthFile(primaryStage));
 
+        // BENCHMARKING DASHBOARD BUTTON
+        Button benchmarkBtn = new Button("Performance Dashboard");
+        benchmarkBtn.setMaxWidth(Double.MAX_VALUE);
+        benchmarkBtn.setStyle("-fx-base: #00bcd4; -fx-font-weight: bold;");
+        Label benchmarkInfo = createInfoIcon("Launches the benchmarking and analytics dashboard comparing generation and solving algorithms.");
+        HBox benchmarkBox = new HBox(5, benchmarkBtn, benchmarkInfo);
+        HBox.setHgrow(benchmarkBtn, Priority.ALWAYS);
+        benchmarkBox.setAlignment(Pos.CENTER_LEFT);
+        benchmarkBtn.setOnAction(event -> view.BenchmarkModal.display(primaryStage));
+
         // STATISTICS
 
         statsLabel = new Label(
@@ -394,7 +399,7 @@ public class MazeGeneratorApp extends Application {
         Label statsInfo = createInfoIcon("Live metrics for cells, dead ends, and solution path length.");
         HBox statsHeaderBox = new HBox(5, new Label("Maze Metrics"), statsInfo);
 
-        // SEED & SHARE CODE CONTROLS (Issue #30)
+        // SEED & SHARE CODE CONTROLS
         Label seedHeader = new Label("Generation Seed / Share Code:");
         Label seedInfo = createInfoIcon("Enter a custom seed or share code to reproduce exact mazes.");
         seedTextField = new javafx.scene.control.TextField(String.valueOf(currentSeed));
@@ -434,7 +439,7 @@ public class MazeGeneratorApp extends Application {
         javafx.scene.control.TabPane controlTabs = new javafx.scene.control.TabPane();
         controlTabs.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        // TAB 1: COMBINED GENERATION & SOLVING ("Maze Editor") WRAPPED IN A SCROLLPANE
+        // TAB 1: MAZE EDITOR
         VBox genSolveContent = new VBox(8,
                 new HBox(5, shapeHeader, shapeInfo), shapeCombo,
                 new HBox(5, entranceExitHeader, entranceExitInfo), entranceExitModeCombo, openingStatusLabel,
@@ -457,7 +462,7 @@ public class MazeGeneratorApp extends Application {
         genSolveScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         javafx.scene.control.Tab genSolveTab = new javafx.scene.control.Tab("Maze Editor", genSolveScroll);
 
-        // TAB 2: GAMEPLAY ("Play")
+        // TAB 2: PLAY
         VBox gameContent = new VBox(8,
                 playBox,
                 fogBox,
@@ -466,12 +471,13 @@ public class MazeGeneratorApp extends Application {
         gameContent.setPadding(new Insets(10));
         javafx.scene.control.Tab gameTab = new javafx.scene.control.Tab("Play", gameContent);
 
-        // TAB 3: FILE & THEME ("File")
+        // TAB 3: FILE & ANALYTICS
         VBox fileContent = new VBox(8,
                 themeBox,
                 exportBox,
                 saveBox,
                 loadBox,
+                benchmarkBox,
                 new Separator(),
                 statsHeaderBox,
                 statsLabel
@@ -481,7 +487,7 @@ public class MazeGeneratorApp extends Application {
 
         controlTabs.getTabs().addAll(genSolveTab, gameTab, fileTab);
 
-        // PINNED GLOBAL TOOLBAR (Always accessible outside tabs)
+        // PINNED GLOBAL TOOLBAR
         VBox pinnedGlobalBar = new VBox(8,
                 genBox,
                 playBox
@@ -492,7 +498,7 @@ public class MazeGeneratorApp extends Application {
         VBox controls = new VBox(0, pinnedGlobalBar, new Separator(), controlTabs);
         controls.setPrefWidth(320);
 
-        // WRAP CANVAS IN A STACKPANE FOR CLEAN CENTERING & MARGINS
+        // WRAP CANVAS IN A STACKPANE
         StackPane canvasContainer = new StackPane(mazeCanvas);
         canvasContainer.setAlignment(Pos.CENTER);
         canvasContainer.setStyle("-fx-padding: 15;");
@@ -504,6 +510,47 @@ public class MazeGeneratorApp extends Application {
         Scene scene = new Scene(root, 940, 840);
 
         scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+
+        // --- ISSUE #34: RESPONSIVE CANVAS AUTO-SCALING & DEBOUNCED RESIZE LISTENER ---[cite: 3]
+        javafx.animation.PauseTransition resizeDebouncer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(100));
+        resizeDebouncer.setOnFinished(event -> {
+            double availableWidth = Math.max(300, scene.getWidth() - 340);
+            double availableHeight = Math.max(300, scene.getHeight() - 40);
+
+            if (mazeCanvas != null) {
+                double renderWidth = availableWidth;
+                double renderHeight = availableHeight;
+
+                if (grid != null && grid.getTopology() == TopologyType.RECTANGULAR && widthSlider != null && heightSlider != null) {
+                    double cols = widthSlider.getValue();
+                    double rows = heightSlider.getValue();
+                    double gridAspect = cols / rows;
+
+                    if (availableWidth / availableHeight > gridAspect) {
+                        renderWidth = availableHeight * gridAspect;
+                    } else {
+                        renderHeight = availableWidth / gridAspect;
+                    }
+                } else {
+                    double size = Math.min(availableWidth, availableHeight);
+                    renderWidth = size;
+                    renderHeight = size;
+                }
+
+                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
+                if (grid != null) {
+                    if (grid.isCircular()) {
+                        grid.layoutCircularGrid(renderWidth, renderHeight, 0.0);
+                    } else if (grid.isPolygonal()) {
+                        grid.layoutPolygonGrid(renderWidth, renderHeight, 0.0);
+                    }
+                    mazeCanvas.draw();
+                }
+            }
+        });
+
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
 
         // THEME ACTION
 
@@ -647,49 +694,6 @@ public class MazeGeneratorApp extends Application {
 
         primaryStage.setScene(scene);
         primaryStage.show();
-
-        // --- ISSUE #34: RESPONSIVE CANVAS AUTO-SCALING & DEBOUNCED RESIZE LISTENER ---[cite: 3, 4]
-        javafx.animation.PauseTransition resizeDebouncer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(100));
-        resizeDebouncer.setOnFinished(event -> {
-            double availableWidth = Math.max(300, scene.getWidth() - 340);
-            double availableHeight = Math.max(300, scene.getHeight() - 40);
-
-            if (mazeCanvas != null) {
-                double renderWidth = availableWidth;
-                double renderHeight = availableHeight;
-
-                // If it's a rectangular grid, preserve its structural aspect ratio so cells don't stretch!
-                if (grid != null && grid.getTopology() == TopologyType.RECTANGULAR && widthSlider != null && heightSlider != null) {
-                    double cols = widthSlider.getValue();
-                    double rows = heightSlider.getValue();
-                    double gridAspect = cols / rows;
-
-                    if (availableWidth / availableHeight > gridAspect) {
-                        renderWidth = availableHeight * gridAspect;
-                    } else {
-                        renderHeight = availableWidth / gridAspect;
-                    }
-                } else {
-                    // Circular/Polygonal shapes remain square-bound
-                    double size = Math.min(availableWidth, availableHeight);
-                    renderWidth = size;
-                    renderHeight = size;
-                }
-
-                mazeCanvas.resizeCanvas(renderWidth, renderHeight);
-                if (grid != null) {
-                    if (grid.isCircular()) {
-                        grid.layoutCircularGrid(renderWidth, renderHeight, 0.0);
-                    } else if (grid.isPolygonal()) {
-                        grid.layoutPolygonGrid(renderWidth, renderHeight, 0.0);
-                    }
-                    mazeCanvas.draw();
-                }
-            }
-        });
-
-        scene.widthProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
-        scene.heightProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
     }
 
     // ENTRANCE / EXIT MODE OPTIONS

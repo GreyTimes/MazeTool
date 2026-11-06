@@ -1,0 +1,4 @@
+2026-11-06T11:16:04.966686500 [Thread-4] java.lang.IllegalArgumentException: Circular grid parameters exceed safe safety limits.
+2026-11-06T11:16:28.159678400 [Thread-6] java.lang.IllegalArgumentException: Circular grid parameters exceed safe safety limits.
+2026-11-06T11:16:41.502244800 [Thread-7] java.lang.IllegalArgumentException: Circular grid parameters exceed safe safety limits.
+2026-11-06T11:21:59.000108900 [Thread-3] java.lang.IllegalArgumentException: Circular grid parameters exceed safe safety limits.
