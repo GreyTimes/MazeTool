@@ -73,6 +73,10 @@ runtime {
         installerName = 'MazinStuff'
         appVersion = project.version.toString()
         installerType = 'exe'
+        imageOptions = [
+                '--icon',
+                file("$projectDir/packaging/MazinStuff.ico").absolutePath
+        ]
         installerOptions = [
                 '--win-per-user-install',
                 '--win-dir-chooser',
