@@ -90,6 +90,16 @@ runtime {
     }
 }
 
+jar {
+    manifest {
+        attributes(
+                'Implementation-Title': 'MazinStuff',
+                'Implementation-Version': project.version.toString(),
+                'Implementation-Vendor': 'GreyTimes'
+        )
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

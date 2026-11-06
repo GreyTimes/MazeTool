@@ -408,6 +408,19 @@ public class MazeGeneratorApp extends Application {
                 )
         );
 
+        // ABOUT APPLICATION
+
+        Button aboutBtn = new Button("About MazinStuff");
+
+        aboutBtn.setMaxWidth(Double.MAX_VALUE);
+
+        aboutBtn.setOnAction(event ->
+                AboutDialog.display(
+                        primaryStage,
+                        themeConfig.isDarkMode()
+                )
+        );
+
         // STATISTICS
 
         statsLabel = new Label(
@@ -501,6 +514,8 @@ public class MazeGeneratorApp extends Application {
                 saveBox,
                 loadBox,
                 benchmarkBox,
+                new Separator(),
+                aboutBtn,
                 new Separator(),
                 statsHeaderBox,
                 statsLabel
