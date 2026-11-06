@@ -12,8 +12,6 @@
   <strong>Version 2.0.0</strong> · Java 21 · JavaFX 21
 </p>
 
----
-
 ## Overview
 
 **MazinStuff** is a desktop application built with Java and JavaFX that allows users to generate, solve and interact with procedurally generated mazes.
@@ -116,8 +114,6 @@ Explore maze-generation and solving performance through:
 - Algorithm performance comparisons.
 - Generation and solving benchmarks.
 
----
-
 ## Getting Started
 
 ### For Users – Windows
@@ -144,8 +140,6 @@ The easiest way to use MazinStuff is through the standalone Windows installer.
 9. Save or export your generated maze.
 
 Use the information icons (`ℹ`) throughout the interface for additional explanations of individual controls and algorithms.
-
----
 
 ## For Developers
 
@@ -210,8 +204,6 @@ To generate the Windows installer:
 
 Building Windows installers requires a Windows development environment, JDK 21 and WiX Toolset.
 
----
-
 ## Technology Stack
 
 | Technology | Purpose |
@@ -222,8 +214,6 @@ Building Windows installers requires a Windows development environment, JDK 21 a
 | Gson | JSON serialization support |
 | Java Preferences API | Persistent appearance preferences |
 | jpackage | Standalone application packaging |
-
----
 
 ## Project Structure
 
@@ -249,8 +239,6 @@ MazinStuff/
 
 The project is organized into application, model, generation, solving and presentation components.
 
----
-
 ## Releases
 
 Download the latest version from:
@@ -260,8 +248,6 @@ Download the latest version from:
 Current release: **v2.0.0**
 
 The current standalone distribution targets Windows x64.
-
----
 
 ## Contributing
 
@@ -275,15 +261,11 @@ Contributions, bug reports and feature suggestions are welcome!
 
 Please use the repository's issue tracker to report bugs or suggest improvements.
 
----
-
 ## License
 
 MazinStuff is distributed under the **MIT License**.
 
 See the [LICENCE](LICENCE) file for the full license text.
-
----
 
 <p align="center">
   Made with Java and JavaFX by <a href="https://github.com/GreyTimes">GreyTimes</a>.
