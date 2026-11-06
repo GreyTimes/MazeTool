@@ -6,6 +6,7 @@ import javafx.scene.paint.Color;
 import model.Cell;
 import model.MazeGrid;
 import model.PolarCell;
+import model.MazeThemeConfig;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -26,6 +27,7 @@ public class CircularRenderer implements MazeRenderer {
     private Cell hoveredCell;
     private Double playerScreenX;
     private Double playerScreenY;
+    private MazeThemeConfig themeConfig = new MazeThemeConfig(MazeThemeConfig.ThemePreset.DEFAULT_DARK);
 
     @Override
     public void setDarkMode(boolean darkMode) {
@@ -46,6 +48,13 @@ public class CircularRenderer implements MazeRenderer {
     public void setPlayerScreenPosition(double x, double y) {
         playerScreenX = x;
         playerScreenY = y;
+    }
+
+    @Override
+    public void setThemeConfig(MazeThemeConfig config) {
+        if (config != null) {
+            this.themeConfig = config;
+        }
     }
 
     @Override
@@ -113,17 +122,32 @@ public class CircularRenderer implements MazeRenderer {
             int fogRadius
     ) {
 
-        Color background = darkMode ? Color.web("#1e1e1e") : Color.web("#f5f5f5");
-        Color wall = darkMode ? Color.web("#4a4a4a") : Color.web("#333333");
-        Color path = Color.web("#00bcd4");
-        Color player = Color.web("#e91e63");
-        Color head = Color.web("#ffeb3b");
-        Color entrance = Color.web("#4caf50");
-        Color exit = Color.web("#f44336");
-        Color fog = darkMode ? Color.web("#111111") : Color.web("#d0d0d0");
-        Color exploredDim = darkMode ? Color.web("#2a2a2a") : Color.web("#e0e0e0");
-        Color reachableFill = darkMode ? Color.web("#155c66") : Color.web("#b6e8ec");
-        Color hoverFill = darkMode ? Color.web("#946018") : Color.web("#ffe0a3");
+        Color background = themeConfig.getBackgroundColor();
+        Color floor = themeConfig.getFloorColor();
+
+        Color wall = themeConfig.getWallColor();
+        Color path = themeConfig.getPathColor();
+        Color player = themeConfig.getPlayerColor();
+        Color head = themeConfig.getHeadColor();
+
+        Color entrance = themeConfig.getEntranceColor();
+        Color exit = themeConfig.getExitColor();
+
+        Color fog = darkMode
+                ? Color.web("#111111")
+                : Color.web("#d0d0d0");
+
+        Color exploredDim = darkMode
+                ? Color.web("#2a2a2a")
+                : Color.web("#e0e0e0");
+
+        Color reachableFill = darkMode
+                ? Color.web("#155c66")
+                : Color.web("#b6e8ec");
+
+        Color hoverFill = darkMode
+                ? Color.web("#946018")
+                : Color.web("#ffe0a3");
 
         gc.setGlobalAlpha(1.0);
         gc.setFill(background);
@@ -163,7 +187,7 @@ public class CircularRenderer implements MazeRenderer {
             } else if (solution.contains(cell)) {
                 fill = path;
             } else {
-                fill = background;
+                fill = floor;
             }
 
             fillCell(gc, polar, centerX, centerY, scale, fill);
@@ -176,7 +200,14 @@ public class CircularRenderer implements MazeRenderer {
         }
 
         gc.setStroke(wall);
-        gc.setLineWidth(Math.max(1.2, Math.min(3.0, scale / (grid.getPolarRingCount() * 8.0))));
+
+        double baseWallWidth = Math.max(1.2, Math.min(3.0, scale / (grid.getPolarRingCount() * 8.0)));
+
+        MazeRenderSupport.configureWallStroke(
+                gc,
+                themeConfig,
+                baseWallWidth * themeConfig.getWallWidthMultiplier()
+        );
 
         for (Cell cell : grid.getAllCells()) {
             if (!(cell instanceof PolarCell polar)) {

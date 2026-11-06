@@ -5,17 +5,30 @@ import javafx.scene.paint.Color;
 
 import model.Cell;
 import model.MazeGrid;
+import model.MazeThemeConfig;
 import model.TopologyType;
 
 import java.util.List;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 public class RectangularRenderer implements MazeRenderer {
 
     private boolean darkMode = true;
+    private MazeThemeConfig themeConfig = new MazeThemeConfig(MazeThemeConfig.ThemePreset.DEFAULT_DARK);
 
     @Override
     public void setDarkMode(boolean darkMode) {
         this.darkMode = darkMode;
+        themeConfig.setDarkMode(darkMode);
+    }
+
+    @Override
+    public void setThemeConfig(MazeThemeConfig config) {
+        if (config != null) {
+            this.themeConfig = config;
+        }
     }
 
     @Override
@@ -30,6 +43,7 @@ public class RectangularRenderer implements MazeRenderer {
         return grid.getCell(column, row);
     }
 
+
     @Override
     public void render(
             GraphicsContext gc,
@@ -42,17 +56,35 @@ public class RectangularRenderer implements MazeRenderer {
             boolean fogOfWarActive,
             int fogRadius
     ) {
-        Color bgColor = darkMode ? Color.web("#1e1e1e") : Color.web("#f5f5f5");
-        Color wallColor = darkMode ? Color.web("#4a4a4a") : Color.web("#333333");
-        Color pathColor = Color.web("#00bcd4");
-        Color playerColor = Color.web("#e91e63");
-        Color headColor = Color.web("#ffeb3b");
-        Color entranceColor = Color.web("#4caf50");
-        Color exitColor = Color.web("#f44336");
-        Color fogColor = darkMode ? Color.web("#111111") : Color.web("#d0d0d0");
-        Color exploredDimColor = darkMode ? Color.web("#2a2a2a") : Color.web("#e0e0e0");
-        gc.setFill(bgColor);
+
+        // COLORS FROM THE THEME CONFIGURATION
+
+        Color backgroundColor = themeConfig.getBackgroundColor();
+        Color floorColor = themeConfig.getFloorColor();
+        Color wallColor = themeConfig.getWallColor();
+
+        Color pathColor = themeConfig.getPathColor();
+        Color playerColor = themeConfig.getPlayerColor();
+        Color headColor = themeConfig.getHeadColor();
+
+        Color entranceColor = themeConfig.getEntranceColor();
+        Color exitColor = themeConfig.getExitColor();
+
+        // FOG COLORS
+
+        Color fogColor = darkMode
+                ? Color.web("#111111")
+                : Color.web("#d0d0d0");
+
+        Color exploredDimColor = darkMode
+                ? Color.web("#2a2a2a")
+                : Color.web("#e0e0e0");
+
+        // CANVAS BACKGROUND
+
+        gc.setFill(backgroundColor);
         gc.fillRect(0, 0, width, height);
+
         if (grid == null || grid.getTopology() != TopologyType.RECTANGULAR) {
             return;
         }
@@ -60,30 +92,19 @@ public class RectangularRenderer implements MazeRenderer {
         double cellWidth = width / grid.cols;
         double cellHeight = height / grid.rows;
 
-        // SOLVED PATH
+        Set<Cell> solution = solvedPath == null
+                ? Collections.emptySet()
+                : new HashSet<>(solvedPath);
 
-        if (solvedPath != null && !solvedPath.isEmpty()) {
-            gc.setFill(pathColor);
-            for (Cell cell : solvedPath) {
-                if (!fogOfWarActive || cell.discovered) {
-                    if (!cell.isEntrance && !cell.isExit) {
-                        gc.fillRect(
-                                cell.x * cellWidth + cellWidth * 0.2,
-                                cell.y * cellHeight + cellHeight * 0.2,
-                                cellWidth * 0.6,
-                                cellHeight * 0.6
-                        );
-                    }
-                }
-            }
-        }
-
-        // CELL BACKGROUNDS
+        // CELL BACKGROUNDS AND SOLUTION
 
         for (int x = 0; x < grid.cols; x++) {
             for (int y = 0; y < grid.rows; y++) {
+
                 Cell cell = grid.cells[x][y];
+
                 boolean visible = !fogOfWarActive || cell.discovered;
+
                 boolean inRadius =
                         fogOfWarActive
                                 && playerCell != null
@@ -92,21 +113,72 @@ public class RectangularRenderer implements MazeRenderer {
                                         + Math.abs(cell.y - playerCell.y)
                                         <= fogRadius
                         );
+
+                double px = x * cellWidth;
+                double py = y * cellHeight;
+
                 if (!visible) {
                     gc.setFill(fogColor);
-                    gc.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-                } else {
-                    if (fogOfWarActive && !inRadius) {
-                        gc.setFill(exploredDimColor);
-                        gc.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-                    }
-                    if (cell.isEntrance) {
-                        gc.setFill(entranceColor);
-                        gc.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-                    } else if (cell.isExit) {
-                        gc.setFill(exitColor);
-                        gc.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-                    }
+
+                    gc.fillRect(
+                            px,
+                            py,
+                            cellWidth,
+                            cellHeight
+                    );
+
+                    continue;
+                }
+
+                // NORMAL FLOOR
+
+                gc.setFill(floorColor);
+
+                gc.fillRect(
+                        px,
+                        py,
+                        cellWidth,
+                        cellHeight
+                );
+
+                // SOLUTION HIGHLIGHT
+
+                if (solution.contains(cell)
+                        && !cell.isEntrance
+                        && !cell.isExit) {
+
+                    gc.setFill(pathColor);
+
+                    gc.fillRect(
+                            px + cellWidth * 0.2,
+                            py + cellHeight * 0.2,
+                            cellWidth * 0.6,
+                            cellHeight * 0.6
+                    );
+                }
+
+                // EXPLORED BUT OUTSIDE PLAYER RADIUS
+
+                if (fogOfWarActive && !inRadius) {
+                    gc.setFill(exploredDimColor);
+
+                    gc.fillRect(
+                            px,
+                            py,
+                            cellWidth,
+                            cellHeight
+                    );
+                }
+
+                // ENTRANCE AND EXIT
+
+                if (cell.isEntrance) {
+                    gc.setFill(entranceColor);
+                    gc.fillRect(px, py, cellWidth, cellHeight);
+
+                } else if (cell.isExit) {
+                    gc.setFill(exitColor);
+                    gc.fillRect(px, py, cellWidth, cellHeight);
                 }
             }
         }
@@ -115,6 +187,7 @@ public class RectangularRenderer implements MazeRenderer {
 
         if (currentHead != null) {
             gc.setFill(headColor);
+
             gc.fillRect(
                     currentHead.x * cellWidth + cellWidth * 0.1,
                     currentHead.y * cellHeight + cellHeight * 0.1,
@@ -127,6 +200,7 @@ public class RectangularRenderer implements MazeRenderer {
 
         if (playerCell != null) {
             gc.setFill(playerColor);
+
             gc.fillOval(
                     playerCell.x * cellWidth + cellWidth * 0.15,
                     playerCell.y * cellHeight + cellHeight * 0.15,
@@ -138,40 +212,78 @@ public class RectangularRenderer implements MazeRenderer {
         // WALLS
 
         gc.setStroke(wallColor);
-        gc.setLineWidth(Math.max(1.5, Math.min(cellWidth, cellHeight) / 10.0));
+
+        double baseWallWidth = Math.max(
+                1.5,
+                Math.min(cellWidth, cellHeight) / 10.0
+        );
+
+        MazeRenderSupport.configureWallStroke(
+                gc,
+                themeConfig,
+                baseWallWidth * themeConfig.getWallWidthMultiplier()
+        );
+
         for (int x = 0; x < grid.cols; x++) {
             for (int y = 0; y < grid.rows; y++) {
+
                 Cell cell = grid.cells[x][y];
+
                 if (fogOfWarActive && !cell.discovered) {
                     continue;
                 }
+
                 double px = x * cellWidth;
                 double py = y * cellHeight;
+
                 if (cell.walls[0]) {
-                    gc.strokeLine(px, py, px + cellWidth, py);
+                    gc.strokeLine(
+                            px, py,
+                            px + cellWidth, py
+                    );
                 }
+
                 if (cell.walls[1]) {
-                    gc.strokeLine(px + cellWidth, py, px + cellWidth, py + cellHeight);
+                    gc.strokeLine(
+                            px + cellWidth, py,
+                            px + cellWidth, py + cellHeight
+                    );
                 }
+
                 if (cell.walls[2]) {
-                    gc.strokeLine(px, py + cellHeight, px + cellWidth, py + cellHeight);
+                    gc.strokeLine(
+                            px, py + cellHeight,
+                            px + cellWidth, py + cellHeight
+                    );
                 }
+
                 if (cell.walls[3]) {
-                    gc.strokeLine(px, py, px, py + cellHeight);
+                    gc.strokeLine(
+                            px, py,
+                            px, py + cellHeight
+                    );
                 }
             }
         }
 
         // ENTRANCE / EXIT MARKERS
 
-        double markerDiameter = Math.max(6.0, Math.min(13.0, Math.min(cellWidth, cellHeight) * 0.58));
+        double markerDiameter = Math.max(
+                6.0,
+                Math.min(13.0, Math.min(cellWidth, cellHeight) * 0.58)
+        );
+
         for (Cell cell : grid.getAllCells()) {
+
             if (fogOfWarActive && !cell.discovered) {
                 continue;
             }
+
             double centerX = (cell.x + 0.5) * cellWidth;
             double centerY = (cell.y + 0.5) * cellHeight;
+
             if (cell.isEntrance) {
+
                 EndpointMarkerRenderer.draw(
                         gc,
                         centerX,
@@ -180,7 +292,9 @@ public class RectangularRenderer implements MazeRenderer {
                         entranceColor,
                         "S"
                 );
+
             } else if (cell.isExit) {
+
                 EndpointMarkerRenderer.draw(
                         gc,
                         centerX,
@@ -192,4 +306,5 @@ public class RectangularRenderer implements MazeRenderer {
             }
         }
     }
+
 }

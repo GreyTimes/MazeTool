@@ -4,6 +4,7 @@ import javafx.scene.canvas.GraphicsContext;
 
 import model.Cell;
 import model.MazeGrid;
+import model.MazeThemeConfig;
 
 import java.util.Collection;
 import java.util.List;
@@ -34,6 +35,12 @@ public interface MazeRenderer {
     }
 
     default void clearPlayerScreenPosition() {
+    }
+
+    default void setThemeConfig(MazeThemeConfig config) {
+        if (config != null) {
+            setDarkMode(config.isDarkMode());
+        }
     }
 
     default Cell findCellAt(

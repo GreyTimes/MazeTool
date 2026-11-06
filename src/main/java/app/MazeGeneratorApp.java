@@ -24,6 +24,7 @@ import model.EntranceExitMode;
 import model.MazeGrid;
 import model.PolarCell;
 import model.TopologyType;
+import model.MazeThemeConfig;
 
 import view.*;
 
@@ -35,10 +36,6 @@ import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Random;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 
 /**
@@ -56,6 +53,7 @@ public class MazeGeneratorApp extends Application {
     private static final double CANVAS_SIZE = 600.0;
     private static final double GEOMETRY_PADDING = 22.0;
     private static final double PLAYER_MOVE_MILLIS = 160.0;
+    private final model.MazeThemeConfig themeConfig = new model.MazeThemeConfig(model.MazeThemeConfig.ThemePreset.DEFAULT_DARK);
 
     // APPLICATION STATE
 
@@ -83,7 +81,7 @@ public class MazeGeneratorApp extends Application {
     private javafx.scene.control.TextField seedTextField;
     private long currentSeed = System.currentTimeMillis();
 
-    // APPLICATION START
+// APPLICATION START
 
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Customizable JavaFX Maze Generator & Solver");
@@ -92,6 +90,10 @@ public class MazeGeneratorApp extends Application {
                 CANVAS_SIZE,
                 CANVAS_SIZE
         );
+
+        // INITIALIZE THEME CONFIG
+        final MazeThemeConfig themeConfig = MazeThemeConfig.load();
+        mazeCanvas.setThemeConfig(themeConfig);
 
         // TOPOLOGY SELECTION
 
@@ -195,7 +197,11 @@ public class MazeGeneratorApp extends Application {
 
         themeToggle = new ToggleButton("Theme: Dark");
         themeToggle.setMaxWidth(Double.MAX_VALUE);
-        themeToggle.setSelected(true);
+        themeToggle.setSelected(themeConfig.isDarkMode());
+        themeToggle.setText(themeConfig.isDarkMode()
+                        ? "Theme: Dark"
+                        : "Theme: Light"
+        );
         Label themeInfo = createInfoIcon("Switches between dark and light visual themes.");
         HBox themeBox = new HBox(5, themeToggle, themeInfo);
         HBox.setHgrow(themeToggle, Priority.ALWAYS);
@@ -377,7 +383,7 @@ public class MazeGeneratorApp extends Application {
         loadMazeBtn.setOnAction(event -> loadLabyrinthFile(primaryStage));
 
         // BENCHMARKING DASHBOARD BUTTON
-        Button benchmarkBtn = new Button("Performance Dashboard");
+        Button benchmarkBtn = new Button("Performance Dashboard (#28)");
         benchmarkBtn.setMaxWidth(Double.MAX_VALUE);
         benchmarkBtn.setStyle("-fx-base: #00bcd4; -fx-font-weight: bold;");
         Label benchmarkInfo = createInfoIcon("Launches the benchmarking and analytics dashboard comparing generation and solving algorithms.");
@@ -385,6 +391,22 @@ public class MazeGeneratorApp extends Application {
         HBox.setHgrow(benchmarkBtn, Priority.ALWAYS);
         benchmarkBox.setAlignment(Pos.CENTER_LEFT);
         benchmarkBtn.setOnAction(event -> view.BenchmarkModal.display(primaryStage));
+
+        // THEME CUSTOMIZER BUTTON
+        Button themeCustomizerBtn = new Button("Customize Colors & Themes (#29)");
+        themeCustomizerBtn.setMaxWidth(Double.MAX_VALUE);
+        themeCustomizerBtn.setStyle("-fx-base: #00acc1; -fx-font-weight: bold;");
+        Label customizerInfo = createInfoIcon("Opens advanced color pickers, wall thickness sliders, and preset themes.");
+        HBox customizerBox = new HBox(5, themeCustomizerBtn, customizerInfo);
+        HBox.setHgrow(themeCustomizerBtn, Priority.ALWAYS);
+        customizerBox.setAlignment(Pos.CENTER_LEFT);
+        themeCustomizerBtn.setOnAction(event ->
+                ThemeCustomizerModal.display(
+                        primaryStage,
+                        themeConfig,
+                        () -> applyThemeAppearance(primaryStage, themeConfig)
+                )
+        );
 
         // STATISTICS
 
@@ -474,6 +496,7 @@ public class MazeGeneratorApp extends Application {
         // TAB 3: FILE & ANALYTICS
         VBox fileContent = new VBox(8,
                 themeBox,
+                customizerBox,
                 exportBox,
                 saveBox,
                 loadBox,
@@ -511,7 +534,7 @@ public class MazeGeneratorApp extends Application {
 
         scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
 
-        // --- ISSUE #34: RESPONSIVE CANVAS AUTO-SCALING & DEBOUNCED RESIZE LISTENER ---[cite: 3]
+        // --- RESPONSIVE CANVAS AUTO-SCALING & DEBOUNCED RESIZE LISTENER ---[cite: 3, 4]
         javafx.animation.PauseTransition resizeDebouncer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(100));
         resizeDebouncer.setOnFinished(event -> {
             double availableWidth = Math.max(300, scene.getWidth() - 340);
@@ -553,20 +576,11 @@ public class MazeGeneratorApp extends Application {
         scene.heightProperty().addListener((obs, oldVal, newVal) -> resizeDebouncer.playFromStart());
 
         // THEME ACTION
-
         themeToggle.setOnAction(event -> {
-            String stylesheet = getClass().getResource("/style.css").toExternalForm();
-            if (themeToggle.isSelected()) {
-                themeToggle.setText("Theme: Dark");
-                if (!scene.getStylesheets().contains(stylesheet)) {
-                    scene.getStylesheets().add(stylesheet);
-                }
-                mazeCanvas.setDarkMode(true);
-            } else {
-                themeToggle.setText("Theme: Light");
-                scene.getStylesheets().remove(stylesheet);
-                mazeCanvas.setDarkMode(false);
-            }
+            themeConfig.setDarkMode(themeToggle.isSelected());
+
+            // Remember the selected mode.
+            applyThemeAppearance(primaryStage, themeConfig);
         });
 
         // GENERATE ACTION
@@ -694,6 +708,51 @@ public class MazeGeneratorApp extends Application {
 
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    private void applyThemeAppearance(
+            Stage owner,
+            MazeThemeConfig themeConfig
+    ) {
+
+        boolean dark = themeConfig.isDarkMode();
+
+        // UPDATE TOGGLE
+
+        themeToggle.setSelected(dark);
+
+        themeToggle.setText(
+                dark ? "Theme: Dark" : "Theme: Light"
+        );
+
+        // UPDATE JAVAFX STYLESHEET
+
+        Scene scene = owner.getScene();
+
+        if (scene != null) {
+
+            String stylesheet =
+                    getClass().getResource("/style.css").toExternalForm();
+
+            if (dark) {
+
+                if (!scene.getStylesheets().contains(stylesheet)) {
+                    scene.getStylesheets().add(stylesheet);
+                }
+
+            } else {
+
+                scene.getStylesheets().remove(stylesheet);
+            }
+        }
+
+        // UPDATE THE CANVAS
+
+        mazeCanvas.setThemeConfig(themeConfig);
+        mazeCanvas.setDarkMode(dark);
+        mazeCanvas.draw();
+
+        themeConfig.save();
     }
 
     // ENTRANCE / EXIT MODE OPTIONS

@@ -5,6 +5,7 @@ import javafx.scene.paint.Color;
 
 import model.Cell;
 import model.MazeGrid;
+import model.MazeThemeConfig;
 import model.PolygonCell;
 
 import java.util.ArrayDeque;
@@ -35,7 +36,7 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
     private Cell hoveredCell;
     private Double playerScreenX;
     private Double playerScreenY;
-
+    private MazeThemeConfig themeConfig = new MazeThemeConfig(MazeThemeConfig.ThemePreset.DEFAULT_DARK);
     // GEOMETRIC EDGE IDENTIFICATION
 
     /**
@@ -102,6 +103,13 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
     public void clearPlayerScreenPosition() {
         playerScreenX = null;
         playerScreenY = null;
+    }
+
+    @Override
+    public void setThemeConfig(MazeThemeConfig config) {
+        if (config != null) {
+            this.themeConfig = config;
+        }
     }
 
     // MOUSE HIT TESTING
@@ -173,19 +181,34 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
             int fogRadius
     ) {
 
-        Color background = darkMode ? Color.web("#1e1e1e") : Color.web("#f5f5f5");
-        Color wallColor = darkMode ? Color.web("#777777") : Color.web("#333333");
-        Color exteriorWallColor = darkMode ? Color.web("#999999") : Color.web("#222222");
-        Color pathColor = Color.web("#00bcd4");
-        Color playerColor = Color.web("#e91e63");
-        Color headColor = Color.web("#ffeb3b");
-        Color entranceColor = Color.web("#4caf50");
-        Color exitColor = Color.web("#f44336");
-        Color fogColor = darkMode ? Color.web("#111111") : Color.web("#d0d0d0");
-        Color exploredDimColor = darkMode ? Color.web("#2a2a2a") : Color.web("#e0e0e0");
-        Color reachableColor = darkMode ? Color.web("#155c66") : Color.web("#b6e8ec");
-        Color hoverColor = darkMode ? Color.web("#946018") : Color.web("#ffe0a3");
+        Color background = themeConfig.getBackgroundColor();
+        Color floorColor = themeConfig.getFloorColor();
 
+        Color wallColor = themeConfig.getWallColor();
+        Color exteriorWallColor = wallColor;
+
+        Color pathColor = themeConfig.getPathColor();
+        Color playerColor = themeConfig.getPlayerColor();
+        Color headColor = themeConfig.getHeadColor();
+
+        Color entranceColor = themeConfig.getEntranceColor();
+        Color exitColor = themeConfig.getExitColor();
+
+        Color fogColor = darkMode
+                ? Color.web("#111111")
+                : Color.web("#d0d0d0");
+
+        Color exploredDimColor = darkMode
+                ? Color.web("#2a2a2a")
+                : Color.web("#e0e0e0");
+
+        Color reachableColor = darkMode
+                ? Color.web("#155c66")
+                : Color.web("#b6e8ec");
+
+        Color hoverColor = darkMode
+                ? Color.web("#946018")
+                : Color.web("#ffe0a3");
         // CLEAR BACKGROUND
 
         gc.setGlobalAlpha(1.0);
@@ -229,7 +252,7 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
             } else if (solution.contains(cell)) {
                 fill = pathColor;
             } else {
-                fill = background;
+                fill = floorColor;
             }
             fillPolygon(gc, polygon, fill
             );
@@ -244,7 +267,8 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
         // DRAW INTERNAL WALLS
 
         gc.setStroke(wallColor);
-        gc.setLineWidth(INTERNAL_WALL_WIDTH);
+        MazeRenderSupport.configureWallStroke(gc, themeConfig, INTERNAL_WALL_WIDTH * themeConfig.getWallWidthMultiplier());
+
         for (Map.Entry<SegmentKey, List<EdgeOccurrence>> entry : physicalEdges.entrySet()) {
             List<EdgeOccurrence> occurrences = entry.getValue();
 
@@ -280,7 +304,8 @@ public abstract class PolygonMazeRenderer implements MazeRenderer {
         // The outside border must always be visible.
 
         gc.setStroke(exteriorWallColor);
-        gc.setLineWidth(EXTERIOR_WALL_WIDTH);
+        MazeRenderSupport.configureWallStroke(gc, themeConfig, EXTERIOR_WALL_WIDTH * themeConfig.getWallWidthMultiplier());
+
         int exteriorEdgeCount = 0;
         int openingEdgeCount = 0;
 
