@@ -1631,6 +1631,18 @@ public class MazeGeneratorApp extends Application {
         isPlayerMoving = false;
         playModeToggle.setSelected(false);
         playModeToggle.setText("Playable Mode: OFF");
+
+        isFogOfWar = false;
+        if (fogOfWarToggle != null) {
+            fogOfWarToggle.setSelected(false);
+            fogOfWarToggle.setText("Fog of War: OFF");
+        }
+        if (grid != null) {
+            for (Cell cell : grid.getAllCells()) {
+                cell.discovered = true; // Reveal all cells upon victory
+            }
+        }
+
         if (movementTimeline != null) {
             movementTimeline.stop();
             movementTimeline = null;
